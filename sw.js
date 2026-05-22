@@ -1,4 +1,4 @@
-const CACHE = 'reselltracker-v3';
+const CACHE = 'reselltracker-v5';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -16,6 +16,9 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     fetch(e.request)
       .then(resp => {
+        if (!resp || resp.status !== 200 || resp.type !== 'basic') {
+          return resp;
+        }
         const copy = resp.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));
         return resp;
