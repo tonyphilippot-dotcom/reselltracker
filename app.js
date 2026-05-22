@@ -11,8 +11,8 @@ function save(){
   localStorage.setItem('rt-art',JSON.stringify(articles));
   localStorage.setItem('rt-fut',JSON.stringify(futurs));
   localStorage.setItem('rt-trk',JSON.stringify(tracking));
-  // Sauvegarde auto JSON a chaque article
   autoBackup();
+  scheduleCloudBackup();
 }
 function autoBackup(){
   try{
@@ -34,6 +34,96 @@ function autoBackup(){
     }
   }catch(e){}
 }
+
+
+// ── ☁️ CLOUD SYNC
+const CLOUD_URL = 'https://resell-proxy.tony-philippot.workers.dev';
+
+function getCloudKey() {
+  let k = localStorage.getItem('rt-cloud-key');
+  if (!k) {
+    k = prompt('🔐 Crée ton identifiant cloud (mot/phrase secrète à retenir, ex: tony2024). Tu en auras besoin pour restaurer tes données sur un autre appareil.');
+    if (k && k.trim().length >= 3) {
+      k = k.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'');
+      localStorage.setItem('rt-cloud-key', k);
+    } else {
+      return null;
+    }
+  }
+  return k;
+}
+
+async function cloudBackup(silent) {
+  const key = getCloudKey();
+  if (!key) { if(!silent) alert('Sauvegarde annulée'); return false; }
+  try {
+    const data = {
+      articles, futurs, tracking,
+      vendeurs: JSON.parse(localStorage.getItem('rt-vendeurs')||'[]'),
+      pays: JSON.parse(localStorage.getItem('rt-pay')||'[]'),
+      objectif
+    };
+    const resp = await fetch(CLOUD_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({_action:'backup', _key:key, _data:data})
+    });
+    const r = await resp.json();
+    if (r.saved) {
+      localStorage.setItem('rt-cloud-last', new Date().toISOString());
+      if (!silent) {
+        showToast('☁️ Sauvegardé dans le cloud');
+        renderDashboard();
+      }
+      return true;
+    }
+    if (!silent) alert('Erreur sauvegarde cloud');
+    return false;
+  } catch(e) {
+    if (!silent) alert('Erreur cloud : '+e.message);
+    return false;
+  }
+}
+
+async function cloudRestore() {
+  const key = prompt('🔐 Entre ton identifiant cloud pour restaurer :');
+  if (!key || key.trim().length < 3) { alert('Identifiant invalide'); return; }
+  const k = key.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  try {
+    const resp = await fetch(CLOUD_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({_action:'restore', _key:k})
+    });
+    const r = await resp.json();
+    if (!r.backup) { alert('Aucune sauvegarde trouvée pour cet identifiant.'); return; }
+    const d = new Date(r.backup.date).toLocaleString('fr-FR');
+    if (!confirm('Sauvegarde trouvée du '+d+'. Restaurer ? Tes données actuelles seront remplacées.')) return;
+    const data = r.backup.data;
+    if (data.articles) articles = data.articles;
+    if (data.futurs) futurs = data.futurs;
+    if (data.tracking) tracking = data.tracking;
+    if (data.vendeurs) localStorage.setItem('rt-vendeurs', JSON.stringify(data.vendeurs));
+    if (data.pays) localStorage.setItem('rt-pay', JSON.stringify(data.pays));
+    if (data.objectif) { objectif = data.objectif; localStorage.setItem('rt-obj', objectif); }
+    localStorage.setItem('rt-cloud-key', k);
+    save();
+    showScreen('dashboard');
+    alert('✅ Données restaurées depuis le cloud !');
+  } catch(e) { alert('Erreur : '+e.message); }
+}
+
+// Auto-backup cloud silencieux toutes les 5 min si modification
+let _cloudPending = false;
+function scheduleCloudBackup() {
+  if (_cloudPending) return;
+  _cloudPending = true;
+  setTimeout(() => {
+    _cloudPending = false;
+    if (localStorage.getItem('rt-cloud-key')) cloudBackup(true);
+  }, 30000); // 30 sec après la dernière modif
+}
+
 
 // ── COULEURS
 const COULEURS=[

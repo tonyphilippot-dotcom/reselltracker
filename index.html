@@ -394,10 +394,14 @@
 <div class="mbg" id="mSettings"><div class="modal">
   <div class="mhandle"></div>
   <div class="mtitle">⚙️ Paramètres & Sauvegarde</div>
-  <div class="stitle">Sauvegarde des données</div>
-  <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Exporte tes données en JSON, puis mets le fichier sur Google Drive pour ne jamais les perdre.</div>
-  <button class="bsec" onclick="backupData()" style="margin-top:0">💾 Sauvegarder mes données (JSON)</button>
-  <button class="bsec" onclick="restoreData()">📂 Restaurer une sauvegarde</button>
+  <div class="stitle">☁️ Sauvegarde cloud (automatique)</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Tes données sont sauvegardées dans le cloud automatiquement à chaque modification. Tu peux les restaurer depuis n'importe quel appareil avec ton identifiant.</div>
+  <button class="bsec" onclick="cloudBackup(false)" style="margin-top:0;background:linear-gradient(135deg,var(--green-bg),rgba(155,89,182,0.15))">☁️ Sauvegarder maintenant dans le cloud</button>
+  <button class="bsec" onclick="cloudRestore()">⬇️ Restaurer depuis le cloud</button>
+  <div class="stitle">Sauvegarde locale (JSON)</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Télécharge un fichier de sauvegarde sur ton appareil (à mettre sur Google Drive par sécurité).</div>
+  <button class="bsec" onclick="backupData()" style="margin-top:0">💾 Télécharger sauvegarde JSON</button>
+  <button class="bsec" onclick="restoreData()">📂 Restaurer depuis un fichier JSON</button>
   <div class="stitle">Notifications</div>
   <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Reçois des rappels quand des articles sont en stock depuis trop longtemps.</div>
   <button class="bsec" onclick="requestNotifPermission()">🔔 Activer les notifications</button>
