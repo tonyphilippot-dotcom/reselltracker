@@ -170,33 +170,135 @@ async function openQrScanner(){
 }
 function closeQrScanner(){clearInterval(qrInterval);if(qrStream)qrStream.getTracks().forEach(t=>t.stop());qrStream=null;qrInterval=null;document.getElementById('qrScannerWrap').style.display='none';}
 
-// ── SCANNER CODE-BARRES EAN
-let barcodeStream=null,barcodeInterval=null;
+// ── SCANNER CODE-BARRES EAN (BarcodeDetector natif + fallback IA)
+let barcodeStream=null,barcodeInterval=null,_barcodeDetector=null;
+
+function _createBarcodeDetector(){
+  if(!('BarcodeDetector' in window))return null;
+  try{return new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf']});}
+  catch(e){return null;}
+}
+
 async function openBarcodeScanner(){
   document.getElementById('barcodeScannerWrap').style.display='block';
-  document.getElementById('barcodeStatus').textContent='Pointe la caméra vers le code-barres…';
+  document.getElementById('barcodeStatus').innerHTML='';
+  _barcodeDetector=_createBarcodeDetector();
   try{
-    barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}});
     const v=document.getElementById('barcodeVideo');v.srcObject=barcodeStream;
-    barcodeInterval=setInterval(async()=>{
-      if(!v.videoWidth)return;
-      const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
-      c.getContext('2d').drawImage(v,0,0);
-      const img=c.getContext('2d').getImageData(0,0,c.width,c.height);
-      const code=jsQR(img.data,img.width,img.height);
-      if(code&&code.data.match(/^\d{8,13}$/)){
-        closeBarcodeScanner();
-        document.getElementById('barcodeStatus').textContent='';
-        await identifyBarcode(code.data);
-      }
-    },400);
+    await v.play();
+    if(_barcodeDetector){
+      // ✅ BarcodeDetector natif dispo (iOS 17.4+, Chrome, Edge)
+      document.getElementById('barcodeStatus').innerHTML='<span style="color:var(--text2);font-size:11px">🔍 Pointe vers le code-barres de la boîte…</span>';
+      barcodeInterval=setInterval(async()=>{
+        if(!v.videoWidth)return;
+        try{
+          const codes=await _barcodeDetector.detect(v);
+          if(codes.length>0){
+            const raw=codes[0].rawValue;
+            closeBarcodeScanner();
+            await identifyBarcode(raw);
+          }
+        }catch(e){}
+      },400);
+    }else{
+      // ⚠️ Fallback : photo + IA lit le code-barres visuellement
+      document.getElementById('barcodeStatus').innerHTML='<span style="color:var(--text2);font-size:11px">📷 Pointe la caméra vers le code-barres…</span>';
+      // Afficher bouton photo après 1.5s
+      setTimeout(()=>{
+        const w=document.getElementById('barcodeScannerWrap');
+        if(w&&w.style.display!=='none'){
+          document.getElementById('barcodeStatus').innerHTML=
+            '<div style="margin-top:6px"><button class="bsmall p" style="width:100%;padding:9px;border-radius:8px" onclick="captureBarcodeFallback()">📸 Photographier le code-barres</button></div>';
+        }
+      },1500);
+    }
   }catch(e){document.getElementById('barcodeScannerWrap').style.display='none';alert('Caméra inaccessible.');}
 }
+
 function closeBarcodeScanner(){
   clearInterval(barcodeInterval);
   if(barcodeStream)barcodeStream.getTracks().forEach(t=>t.stop());
-  barcodeStream=null;barcodeInterval=null;
+  barcodeStream=null;barcodeInterval=null;_barcodeDetector=null;
   document.getElementById('barcodeScannerWrap').style.display='none';
+}
+
+async function captureBarcodeFallback(){
+  // Capture frame vidéo → envoie à Claude pour lire le code visuellement
+  const v=document.getElementById('barcodeVideo');
+  if(!v||!v.videoWidth)return;
+  const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0);
+  const b64=c.toDataURL('image/jpeg',0.85).split(',')[1];
+  closeBarcodeScanner();
+  const status=document.getElementById('barcodeStatus');
+  status.innerHTML='<span class="spin"></span> Lecture du code-barres…';
+  try{
+    const resp=await fetch('https://resell-proxy.tony-philippot.workers.dev',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:80,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+          {type:'text',text:'Lis le code-barres EAN/UPC dans cette image. Reponds UNIQUEMENT avec le numero de code, rien dautre. Ex: 3664520003285'}
+        ]}]
+      })
+    });
+    const data=await resp.json();
+    const ean=(data.content[0].text||'').trim().replace(/[^0-9]/g,'');
+    if(ean&&ean.length>=8){await identifyBarcode(ean);}
+    else{status.innerHTML='<div style="color:var(--red);font-size:12px">❌ Code non détecté. Essaie à nouveau.</div>';}
+  }catch(e){status.innerHTML='<div style="color:var(--red);font-size:12px">Erreur: '+e.message+'</div>';}
+}
+
+// ── SCANNER ÉTIQUETTE (taille EU, CM, couleur via IA)
+async function scanEtiquette(e){
+  const file=e.target.files[0];if(!file)return;
+  const status=document.getElementById('etiquetteStatus');
+  status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--blue)"><span class="spin"></span>Lecture de l\'étiquette…</div>';
+  try{
+    const b64=await compressImage(file);
+    if(!b64){status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--red)">Impossible de lire l\'image.</div>';return;}
+    const resp=await fetch('https://resell-proxy.tony-philippot.workers.dev',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:300,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+          {type:'text',text:'Analyse cette étiquette de chaussure ou vêtement. Extrait toutes les informations visibles. Reponds UNIQUEMENT en JSON valide sans backticks: {"taille":"taille EU ex 38 ou vide","tailleCm":"taille en cm ex 24.5 ou vide - cherche la ligne CM","couleur":"couleur principale ou vide","marque":"marque si visible ou vide","modele":"modele si visible ou vide","ean":"code EAN/barcode si visible ou vide"}'}
+        ]}]
+      })
+    });
+    const data=await resp.json();
+    const txt=data.content[0].text.replace(/```json|```/g,'').trim();
+    const r=JSON.parse(txt);
+    let filled=[];
+    if(r.taille){document.getElementById('f-taille').value=r.taille;filled.push('taille EU');}
+    if(r.tailleCm){document.getElementById('f-taillecm').value=r.tailleCm;filled.push('taille CM');}
+    if(r.marque){document.getElementById('f-marque').value=r.marque;filled.push('marque');}
+    if(r.modele){document.getElementById('f-modele').value=r.modele;filled.push('modèle');}
+    if(r.couleur){
+      const cl=r.couleur.toLowerCase();
+      COULEURS.forEach((col,i)=>{
+        if(cl.includes(col.l.toLowerCase())&&!selectedColors.includes(col.l)){
+          selectedColors.push(col.l);
+          document.querySelectorAll('#colorPicker .cpill')[i].classList.add('on');
+        }
+      });
+      if(!selectedColors.length)document.getElementById('f-couleur-custom').value=r.couleur;
+      filled.push('couleur');
+    }
+    if(r.ean&&r.ean.length>=8){
+      status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--blue)"><span class="spin"></span>EAN trouvé sur l\'étiquette, identification…</div>';
+      await identifyBarcode(r.ean);
+      return;
+    }
+    updateMargePreview();
+    status.innerHTML=filled.length
+      ?'<div style="margin-top:8px;font-size:12px;color:var(--green)">✅ Extrait : '+filled.join(', ')+'</div>'
+      :'<div style="margin-top:8px;font-size:12px;color:var(--amber)">⚠️ Rien extrait, photo illisible ?</div>';
+  }catch(err){
+    status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--red)">Erreur: '+err.message+'</div>';
+  }
+  e.target.value='';
 }
 async function identifyBarcode(ean){
   const status=document.getElementById('barcodeStatus');
