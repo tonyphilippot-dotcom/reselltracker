@@ -1,18 +1,54 @@
 // ── DATA
-let articles=JSON.parse(localStorage.getItem('rt-art')||'[]');
-let futurs=JSON.parse(localStorage.getItem('rt-fut')||'[]');
-let tracking=JSON.parse(localStorage.getItem('rt-trk')||'[]');
+// 🛡️ Chargement avec fallback sur backup si principal vide
+function _loadWithFallback(key){
+  try{
+    const main=localStorage.getItem(key);
+    if(main && main!=='[]')return JSON.parse(main);
+    const bak=localStorage.getItem(key+'-bak');
+    if(bak && bak!=='[]'){
+      console.warn('⚠️ Restauration depuis backup pour '+key);
+      localStorage.setItem(key,bak);
+      return JSON.parse(bak);
+    }
+    return [];
+  }catch(e){console.error('Load error '+key+':',e);return [];}
+}
+let articles=_loadWithFallback('rt-art');
+let futurs=_loadWithFallback('rt-fut');
+let tracking=_loadWithFallback('rt-trk');
 let objectif=parseFloat(localStorage.getItem('rt-obj')||'0');
 let addPhotos=[],selectedColors=[],currentId=null;
 let stockFilter='tous',futurFilter='tous',ventesTab='env',histoTab='m',chartMode='m',payTab='attente',dashPeriod='month';
 let chartObj=null,qrStream=null,qrInterval=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 function save(){
-  localStorage.setItem('rt-art',JSON.stringify(articles));
-  localStorage.setItem('rt-fut',JSON.stringify(futurs));
-  localStorage.setItem('rt-trk',JSON.stringify(tracking));
-  autoBackup();
-  scheduleCloudBackup();
+  try {
+    const sArt=JSON.stringify(articles);
+    const sFut=JSON.stringify(futurs);
+    const sTrk=JSON.stringify(tracking);
+    // Triple sauvegarde (localStorage + backup + indexé)
+    localStorage.setItem('rt-art',sArt);
+    localStorage.setItem('rt-art-bak',sArt);  // copie de secours
+    localStorage.setItem('rt-fut',sFut);
+    localStorage.setItem('rt-fut-bak',sFut);
+    localStorage.setItem('rt-trk',sTrk);
+    localStorage.setItem('rt-trk-bak',sTrk);
+    localStorage.setItem('rt-saved-at',new Date().toISOString());
+    // Vérification immédiate (au cas où le navigateur a refusé)
+    const check=localStorage.getItem('rt-art');
+    if(check!==sArt){
+      console.error('⚠️ ECHEC SAUVEGARDE LOCALSTORAGE !');
+      alert('⚠️ ATTENTION : Sauvegarde locale échouée ! Stockage saturé ?');
+      return false;
+    }
+    autoBackup();
+    scheduleCloudBackup();
+    return true;
+  } catch(e) {
+    console.error('Save error:',e);
+    alert('Erreur de sauvegarde : '+e.message);
+    return false;
+  }
 }
 function autoBackup(){
   try{
@@ -435,8 +471,8 @@ function saveArticle(){
     }
   }
   save();
-  closeM('mAdd');
   showToast('✅ '+(quantite>1?quantite+' paires':'Paire')+' ajoutée'+(quantite>1?'s':'')+' au stock');
+  closeM('mAdd');
   renderStock();renderDashboard();
   setTimeout(()=>{_savingArticle=false;},500);
 }
@@ -481,8 +517,8 @@ function suppArticle(){
   if(!confirm('Supprimer définitivement "'+art.nom+'" ?'))return;
   articles=articles.filter(a=>a.id!==currentId);
   save();
-  closeM('mDetail');
   showToast('🗑️ Paire supprimée');
+  closeM('mDetail');
   renderStock();renderDashboard();renderVentes();
 }
 let _selling=false;
@@ -497,8 +533,8 @@ function marquerVendu(){
   const r=calcMarge(art);
   if(r){const pays=JSON.parse(localStorage.getItem('rt-pay')||'[]');pays.push({id:Date.now().toString(),artId:art.id,nom:art.nom,vinted:art.vinted,montant:art.pv,net:r.net,date:art.dateVente,recu:false});localStorage.setItem('rt-pay',JSON.stringify(pays));}
   save();
-  closeM('mDetail');
   showToast('💰 Vendue à '+pv+'€ !');
+  closeM('mDetail');
   renderStock();renderDashboard();renderVentes();
   setTimeout(()=>{_selling=false;},500);
 }
@@ -1178,20 +1214,47 @@ document.querySelector('.content').addEventListener('touchend',e=>{
     }
     swipeTargetId=null;return;
   }
-  // Swipe entre écrans (seuil augmenté pour éviter sensibilité)
-  if(Math.abs(dx)<150)return;
-  const active=document.querySelector('.scr.on');if(!active)return;
-  const name=active.id.replace('screen-','');
-  const idx=SWIPE_SCREENS.indexOf(name);if(idx<0)return;
-  if(dx<0&&idx<SWIPE_SCREENS.length-1)showScreen(SWIPE_SCREENS[idx+1]);
-  if(dx>0&&idx>0)showScreen(SWIPE_SCREENS[idx-1]);
+  // Swipe entre écrans DÉSACTIVÉ (utiliser les boutons en bas)
 },{passive:true});
+
+
+// ── 🩺 DIAGNOSTIC (pour vérifier ce qui est en mémoire)
+function showDebug(){
+  const main=localStorage.getItem('rt-art');
+  const bak=localStorage.getItem('rt-art-bak');
+  const savedAt=localStorage.getItem('rt-saved-at');
+  const cloudKey=localStorage.getItem('rt-cloud-key');
+  const cloudLast=localStorage.getItem('rt-cloud-last');
+  let storageSize=0;
+  try{for(let k in localStorage)if(localStorage.hasOwnProperty(k))storageSize+=(localStorage[k].length+k.length);}catch(e){}
+  const msg='🩺 DIAGNOSTIC\n\n'+
+    '📦 articles en mémoire : '+articles.length+'\n'+
+    '💾 localStorage rt-art : '+(main?JSON.parse(main).length+' articles':'VIDE')+'\n'+
+    '🔒 backup rt-art-bak : '+(bak?JSON.parse(bak).length+' articles':'VIDE')+'\n'+
+    '🕐 Dernière sauvegarde : '+(savedAt?new Date(savedAt).toLocaleString('fr-FR'):'jamais')+'\n'+
+    '☁️ Identifiant cloud : '+(cloudKey||'aucun')+'\n'+
+    '☁️ Dernière sync cloud : '+(cloudLast?new Date(cloudLast).toLocaleString('fr-FR'):'jamais')+'\n'+
+    '💽 Stockage utilisé : '+Math.round(storageSize/1024)+' Ko';
+  alert(msg);
+}
 
 function showToast(msg){
   let t=document.getElementById('toast');
-  if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;top:100px;left:50%;transform:translateX(-50%);background:#1fd99a;color:#000;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:999;transition:opacity .3s';document.body.appendChild(t);}
-  t.textContent=msg;t.style.opacity='1';
-  clearTimeout(t._timer);t._timer=setTimeout(()=>t.style.opacity='0',1800);
+  if(!t){
+    t=document.createElement('div');t.id='toast';
+    t.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.8);background:#1fd99a;color:#000;padding:16px 28px;border-radius:14px;font-size:16px;font-weight:700;z-index:999999;box-shadow:0 10px 40px rgba(0,0,0,.5);transition:all .25s cubic-bezier(.34,1.56,.64,1);opacity:0;pointer-events:none;text-align:center;max-width:80vw';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.opacity='1';
+  t.style.transform='translate(-50%,-50%) scale(1)';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{
+    t.style.opacity='0';
+    t.style.transform='translate(-50%,-50%) scale(0.8)';
+  },2200);
+  // Vibration légère sur iOS si dispo
+  if(navigator.vibrate)try{navigator.vibrate(30);}catch(e){}
 }
 
 initColorPicker();
