@@ -224,6 +224,7 @@ async function importUniversal(e){
     if(data.error){throw new Error(JSON.stringify(data.error));}
     const txt=data.content[0].text.replace(/```json|```/g,'').trim();
     const r=JSON.parse(txt);
+    // ── PRIORITÉ : la lecture visuelle est la source principale
     if(r.nom)document.getElementById('f-nom').value=r.nom;
     if(r.marque)document.getElementById('f-marque').value=r.marque;
     if(r.modele)document.getElementById('f-modele').value=r.modele;
@@ -242,19 +243,21 @@ async function importUniversal(e){
       });
       if(!selectedColors.length)document.getElementById('f-couleur-custom').value=r.couleur;
     }
-    // Si EAN trouvé sur l'image → identification produit
-    if(r.ean&&r.ean.length>=8){
-      status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--blue)"><span class="spin"></span>EAN détecté, identification…</div>';
-      await identifyBarcode(r.ean);
-      addPhotos.push('data:image/jpeg;base64,'+b64);renderAddPhotos();
-      return;
-    }
     addPhotos.push('data:image/jpeg;base64,'+b64);renderAddPhotos();
     updateMargePreview();
+    // ── EAN : utilisé UNIQUEMENT pour combler les champs vides (jamais écraser)
+    const visualOK = (r.nom && r.marque);
+    if(r.ean && r.ean.length>=8 && !visualOK){
+      // Lecture visuelle incomplète → on tente l'EAN pour compléter
+      status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--blue)"><span class="spin"></span>Complément via EAN…</div>';
+      await identifyBarcodeFillOnly(r.ean);
+    }
     const filled=[r.nom,r.marque,r.taille,r.tailleCm,r.couleur,r.pa>0?'PA':''].filter(Boolean);
     status.innerHTML=filled.length
       ?'<div style="margin-top:8px;font-size:12px;color:var(--green)">✅ Importé ! Vérifie et complète.</div>'
       :'<div style="margin-top:8px;font-size:12px;color:var(--amber)">⚠️ Rien extrait, photo illisible ?</div>';
+    // Auto-clear status après 5 sec
+    setTimeout(()=>{const s=document.getElementById('importStatus');if(s)s.innerHTML='';},5000);
   }catch(err){
     console.error('Import error:',err);
     status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--red)">Erreur: '+err.message+'</div>';
