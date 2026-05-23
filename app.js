@@ -14,6 +14,87 @@ function _loadWithFallback(key){
   }catch(e){console.error('Load error '+key+':',e);return [];}
 }
 let articles=_loadWithFallback('rt-art');
+// ════════════════════════════════════════════════════════════════
+// 🗄️ INDEXEDDB POUR LES PHOTOS (capacité illimitée vs localStorage)
+// ════════════════════════════════════════════════════════════════
+const IDB_NAME='reselltracker-photos';
+const IDB_STORE='photos';
+let _idb=null;
+function _openIDB(){
+  return new Promise((resolve,reject)=>{
+    if(_idb)return resolve(_idb);
+    const req=indexedDB.open(IDB_NAME,1);
+    req.onerror=()=>reject(req.error);
+    req.onsuccess=()=>{_idb=req.result;resolve(_idb);};
+    req.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE);
+    };
+  });
+}
+async function idbSavePhoto(id,dataURL){
+  const db=await _openIDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).put(dataURL,id);
+    tx.oncomplete=()=>resolve(id);
+    tx.onerror=()=>reject(tx.error);
+  });
+}
+async function idbGetPhoto(id){
+  if(!id||(typeof id==='string'&&id.startsWith('data:')))return id; // déjà un data URL
+  const db=await _openIDB();
+  return new Promise((resolve)=>{
+    const tx=db.transaction(IDB_STORE,'readonly');
+    const req=tx.objectStore(IDB_STORE).get(id);
+    req.onsuccess=()=>resolve(req.result||null);
+    req.onerror=()=>resolve(null);
+  });
+}
+async function idbDeletePhoto(id){
+  if(!id||(typeof id==='string'&&id.startsWith('data:')))return;
+  const db=await _openIDB();
+  return new Promise((resolve)=>{
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).delete(id);
+    tx.oncomplete=()=>resolve();
+    tx.onerror=()=>resolve();
+  });
+}
+
+// Cache mémoire (pour rendu synchrone des photos)
+const _photoCache={};
+async function preloadPhotos(){
+  const db=await _openIDB();
+  return new Promise((resolve)=>{
+    const tx=db.transaction(IDB_STORE,'readonly');
+    const store=tx.objectStore(IDB_STORE);
+    const req=store.openCursor();
+    req.onsuccess=e=>{
+      const cur=e.target.result;
+      if(cur){_photoCache[cur.key]=cur.value;cur.continue();}
+      else resolve();
+    };
+    req.onerror=()=>resolve();
+  });
+}
+// Récupère le data URL d'une photo (depuis cache ou base64 direct)
+function getPhotoURL(idOrData){
+  if(!idOrData)return '';
+  if(typeof idOrData==='string'&&idOrData.startsWith('data:'))return idOrData;
+  return _photoCache[idOrData]||'';
+}
+// Génère un ID unique pour une photo
+function _photoId(){return 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);}
+// Stocke une photo (en data URL) dans IDB et retourne l'ID
+async function storePhoto(dataURL){
+  const id=_photoId();
+  await idbSavePhoto(id,dataURL);
+  _photoCache[id]=dataURL;
+  return id;
+}
+
+
 let futurs=_loadWithFallback('rt-fut');
 let tracking=_loadWithFallback('rt-trk');
 let objectif=parseFloat(localStorage.getItem('rt-obj')||'0');
@@ -23,24 +104,16 @@ let chartObj=null,qrStream=null,qrInterval=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 function save(){
   try {
-    const sArt=JSON.stringify(articles);
-    const sFut=JSON.stringify(futurs);
-    const sTrk=JSON.stringify(tracking);
-    // Triple sauvegarde (localStorage + backup + indexé)
-    localStorage.setItem('rt-art',sArt);
-    localStorage.setItem('rt-art-bak',sArt);  // copie de secours
-    localStorage.setItem('rt-fut',sFut);
-    localStorage.setItem('rt-fut-bak',sFut);
-    localStorage.setItem('rt-trk',sTrk);
-    localStorage.setItem('rt-trk-bak',sTrk);
+    localStorage.setItem('rt-art',JSON.stringify(articles));
+    localStorage.setItem('rt-fut',JSON.stringify(futurs));
+    localStorage.setItem('rt-trk',JSON.stringify(tracking));
     localStorage.setItem('rt-saved-at',new Date().toISOString());
-    // Vérification immédiate (au cas où le navigateur a refusé)
-    const check=localStorage.getItem('rt-art');
-    if(check!==sArt){
-      console.error('⚠️ ECHEC SAUVEGARDE LOCALSTORAGE !');
-      alert('⚠️ ATTENTION : Sauvegarde locale échouée ! Stockage saturé ?');
-      return false;
-    }
+    // Backups (non-bloquant)
+    try{
+      localStorage.setItem('rt-art-bak',localStorage.getItem('rt-art'));
+      localStorage.setItem('rt-fut-bak',localStorage.getItem('rt-fut'));
+      localStorage.setItem('rt-trk-bak',localStorage.getItem('rt-trk'));
+    }catch(e){}
     autoBackup();
     scheduleCloudBackup();
     return true;
@@ -241,44 +314,64 @@ async function handlePhotos(e){
   const files=Array.from(e.target.files);
   e.target.value='';
   if(!files.length)return;
-  // Si pas encore de photo ET les champs nom+marque sont vides → on tente l'analyse IA sur la 1ère
+  const status=document.getElementById('importStatus');
+  if(status)status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--blue)"><span class="spin"></span>Traitement de '+files.length+' photo(s)...</div>';
   const empty = !document.getElementById('f-nom').value.trim() && !document.getElementById('f-marque').value.trim();
   const shouldAnalyze = addPhotos.length === 0 && empty;
   for(let i=0;i<files.length;i++){
     const file=files[i];
     if(i===0 && shouldAnalyze){
-      // 1ère photo + champs vides → analyse IA via importUniversal
       await importUniversalFromFile(file);
     } else {
-      // Photo additionnelle → juste l'ajouter
-      await new Promise(resolve=>{
-        const r=new FileReader();
-        r.onload=ev=>{addPhotos.push(ev.target.result);renderAddPhotos();resolve();};
-        r.readAsDataURL(file);
-      });
+      // Compression douce + stockage dans IndexedDB (capacité énorme)
+      const dataURL=await compressPhoto(file,1200,0.85);
+      if(dataURL){
+        const id=await storePhoto(dataURL);
+        addPhotos.push(id);
+        renderAddPhotos();
+      }
     }
   }
+  if(status)setTimeout(()=>{if(status.innerHTML.includes("Traitement"))status.innerHTML="";},600);
 }
-function renderAddPhotos(){document.getElementById('addPhotos').innerHTML=addPhotos.map((p,i)=>`<div class="mpt"><img src="${p}"><button onclick="addPhotos.splice(${i},1);renderAddPhotos()">x</button></div>`).join('');}
+function renderAddPhotos(){document.getElementById('addPhotos').innerHTML=addPhotos.map((p,i)=>`<div class="mpt"><img src="${getPhotoURL(p)}"><button onclick="addPhotos.splice(${i},1);renderAddPhotos()">x</button></div>`).join('');}
 
 // ── IMPORT IA
-async function compressImage(file){
+// ── 🗜️ Compression universelle des photos (évite quota localStorage iOS)
+function compressPhoto(fileOrDataURL, maxSize=600, quality=0.5){
   return new Promise(resolve=>{
     const img=new Image();
-    const url=URL.createObjectURL(file);
     img.onload=()=>{
       const canvas=document.createElement('canvas');
       let w=img.width,h=img.height;
-      const max=800;
-      if(w>max){h=Math.round(h*max/w);w=max;}
+      // Réduction proportionnelle
+      if(w>maxSize||h>maxSize){
+        if(w>h){h=Math.round(h*maxSize/w);w=maxSize;}
+        else{w=Math.round(w*maxSize/h);h=maxSize;}
+      }
       canvas.width=w;canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/jpeg',0.7).split(',')[1]);
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h); // fond blanc pour JPEG
+      ctx.drawImage(img,0,0,w,h);
+      const dataURL=canvas.toDataURL('image/jpeg',quality);
+      resolve(dataURL);
     };
     img.onerror=()=>resolve(null);
-    img.src=url;
+    if(typeof fileOrDataURL==='string')img.src=fileOrDataURL;
+    else{
+      const url=URL.createObjectURL(fileOrDataURL);
+      img.src=url;
+      // Cleanup après chargement
+      const orig=img.onload;
+      img.onload=function(){URL.revokeObjectURL(url);orig();};
+    }
   });
+}
+
+async function compressImage(file){
+  // Pour l'IA : 800px qualité 0.7 (lisibilité)
+  const dataURL=await compressPhoto(file,800,0.7);
+  return dataURL?dataURL.split(',')[1]:null;
 }
 
 // ── IMPORT UNIVERSEL (étiquette, commande Hacoo/Yep, photo produit, code-barres)
@@ -329,7 +422,13 @@ async function importUniversalFromFile(file){
       });
       if(!selectedColors.length)document.getElementById('f-couleur-custom').value=r.couleur;
     }
-    addPhotos.push('data:image/jpeg;base64,'+b64);renderAddPhotos();
+    // Stocker la photo en IDB (capacité énorme, qualité haute conservée)
+    const storedURL=await compressPhoto(file,1200,0.85);
+    if(storedURL){
+      const id=await storePhoto(storedURL);
+      addPhotos.push(id);
+      renderAddPhotos();
+    }
     updateMargePreview();
     // ── Photo = lecture visuelle UNIQUEMENT. L'EAN n'est PAS utilisé.
     //    (pour identifier via EAN, l'utilisateur clique sur le bouton dédié "Code-barres")
@@ -571,7 +670,7 @@ function fmt(v){return(v>=0?'+':'')+v.toFixed(2)+' \u20ac';}
 function fmtP(v){return(v||0).toFixed(2)+' \u20ac';}
 function fmtDate(d){if(!d)return'\u2014';return new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
 function catEmoji(c){return{Chaussures:'\uD83D\uDC5F',V\u00eatements:'\uD83D\uDC57',Sacs:'\uD83D\uDC5C',Accessoires:'\u2728',Autre:'\uD83D\uDCE6'}[c]||'\uD83D\uDCE6';}
-function thumb(art){if(art.photos&&art.photos.length)return'<img src="'+art.photos[0]+'">';return catEmoji(art.categorie);}
+function thumb(art){if(art.photos&&art.photos.length){const url=getPhotoURL(art.photos[0]);if(url)return'<img src="'+url+'">';}return catEmoji(art.categorie);}
 function statLabel(s){return{attente:'En attente',stock:'En stock',vente:'En vente',vendu:'Vendu',retour:'Retour'}[s]||s;}
 function vintedTag(v){if(!v)return'';return v==='tony'?'<span class="tag-tony">Tony</span>':'<span class="tag-laetitia">Laetitia</span>';}
 function scoreHtml(s){if(!s)return'';const c=s>=7?'high':s>=4?'mid':'low';const e=s>=8?'\uD83D\uDD25':s>=6?'\u2705':s>=4?'\u26A0\uFE0F':'\u274C';return'<span class="score '+c+'">'+e+' '+s+'/10</span>';}
@@ -798,8 +897,8 @@ function saveField(el,field,isNum=false){
 function openDetail(id){
   currentId=id;const a=articles.find(x=>x.id===id);if(!a)return;
   const photos=a.photos&&a.photos.length?a.photos:[];
-  document.getElementById('dmainPhoto').innerHTML=photos[0]?'<img src="'+photos[0]+'">':`<span style="font-size:50px">${catEmoji(a.categorie)}</span>`;
-  document.getElementById('dPhotos').innerHTML=photos.length>1?photos.map((p,i)=>'<img src="'+p+'" class="'+(i===0?'main':'')+'" onclick="setMainPhoto(this,\''+p+'\')">').join(''):'';
+  document.getElementById('dmainPhoto').innerHTML=photos[0]?'<img src="'+getPhotoURL(photos[0])+'">':`<span style="font-size:50px">${catEmoji(a.categorie)}</span>`;
+  document.getElementById('dPhotos').innerHTML=photos.length>1?photos.map((p,i)=>{const url=getPhotoURL(p);return url?'<img src="'+url+'" class="'+(i===0?'main':'')+'" onclick="setMainPhoto(this,\''+url.replace(/'/g,"\\'")+'\')">':'';}).join(''):'';
   document.getElementById('dNom').textContent=a.nom+(a.best?' ':'');
   const j=ageJours(a.date);
   document.getElementById('dMeta').innerHTML=a.plateforme+' '+fmtDate(a.date)+' '+vintedTag(a.vinted);
@@ -944,14 +1043,14 @@ function shareArticleImage(){
     ctx.fillStyle='#8888aa';ctx.font='11px sans-serif';ctx.fillText('ResellTracker — '+fmtDate(a.date),30,680);
     ctx.fillText(a.plateforme+(a.vinted?' · '+(a.vinted==='tony'?'Tony 💙':'Laetitia 💗'):''),400,680);
   };
-  if(a.photos&&a.photos[0]){
+  if(a.photos&&a.photos[0]&&getPhotoURL(a.photos[0])){
     const img=new Image();
     img.onload=()=>{
       ctx.save();ctx.beginPath();ctx.roundRect(30,20,100,100,12);ctx.clip();
       ctx.drawImage(img,30,20,100,100);ctx.restore();
       drawText();shareCanvas(canvas,a.nom);
     };
-    img.src=a.photos[0];
+    img.src=getPhotoURL(a.photos[0]);
   }else{drawText();shareCanvas(canvas,a.nom);}
 }
 function shareCanvas(canvas,nom){
@@ -966,7 +1065,7 @@ function shareCanvas(canvas,nom){
   },'image/png');
 }
 
-function printFiche(){const a=articles.find(x=>x.id===currentId);if(!a)return;const r=calcMarge(a);const pm=prixMin(a.pa||0,a.port||0);document.getElementById('printSheet').innerHTML='<div style="max-width:420px;margin:0 auto;font-family:sans-serif"><h2>'+a.nom+'</h2><p style="color:#666;font-size:13px;margin-bottom:16px">'+a.plateforme+' '+fmtDate(a.date)+(a.vinted?' '+a.vinted:'')+'</p>'+(a.photos&&a.photos[0]?'<img src="'+a.photos[0]+'" style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;margin-bottom:16px">':'')+'<table style="width:100%;border-collapse:collapse;font-size:14px"><tr><td style="padding:6px 0;color:#666;border-bottom:1px solid #eee">Marque</td><td style="text-align:right;border-bottom:1px solid #eee">'+(a.marque||'--')+'</td></tr><tr><td style="padding:6px 0;color:#666;border-bottom:1px solid #eee">Modele</td><td style="text-align:right;border-bottom:1px solid #eee">'+(a.modele||'--')+'</td></tr><tr><td style="padding:6px 0;color:#666;border-bottom:1px solid #eee">Taille</td><td style="text-align:right;border-bottom:1px solid #eee">'+(a.taille||'--')+'</td></tr><tr><td style="padding:6px 0;color:#666;border-bottom:1px solid #eee">Couleur</td><td style="text-align:right;border-bottom:1px solid #eee">'+(a.couleur||'--')+'</td></tr><tr><td style="padding:6px 0;color:#E24B4A">Min sans perte</td><td style="text-align:right;font-weight:600;color:#E24B4A">'+fmtP(pm)+'</td></tr>'+(r?'<tr><td style="padding:6px 0;font-weight:600">Marge nette</td><td style="text-align:right;font-weight:600;color:'+(r.net>=0?'#1D9E75':'#E24B4A')+'">'+fmt(r.net)+'</td></tr>':'')+'</table>'+(a.notes?'<p style="margin-top:12px;font-size:13px;color:#666">'+a.notes+'</p>':'')+'<p style="margin-top:16px;font-size:11px;color:#aaa">ResellTracker '+new Date().toLocaleDateString('fr-FR')+'</p></div>';window.print();}
+function printFiche(){const a=articles.find(x=>x.id===currentId);if(!a)return;const r=calcMarge(a);const pm=prixMin(a.pa||0,a.port||0);document.getElementById('printSheet').innerHTML='<div style="max-width:420px;margin:0 auto;font-family:sans-serif"><h2>'+a.nom+'</h2><p style="color:#666;font-size:13px;margin-bottom:16px">'+a.plateforme+' '+fmtDate(a.date)+(a.vinted?' '+a.vinted:'')+'</p>'+(a.photos&&a.photos[0]&&getPhotoURL(a.photos[0])?'<img src="'+getPhotoURL(a.photos[0])+'" style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;margin-bottom:16px">':'')+'<table style="width:100%;border-collapse:collapse;font-size:14px"><tr><td style="padding:6px 0;color:#666;border-bottom:1px solid #eee">Marque</td><td style="text-align:right;border-bottom:1px solid #eee">'+(a.marque||'--')+'</td></tr><tr><td style="padding:6px 0;color:#666;border-bottom:1px solid #eee">Modele</td><td style="text-align:right;border-bottom:1px solid #eee">'+(a.modele||'--')+'</td></tr><tr><td style="padding:6px 0;color:#666;border-bottom:1px solid #eee">Taille</td><td style="text-align:right;border-bottom:1px solid #eee">'+(a.taille||'--')+'</td></tr><tr><td style="padding:6px 0;color:#666;border-bottom:1px solid #eee">Couleur</td><td style="text-align:right;border-bottom:1px solid #eee">'+(a.couleur||'--')+'</td></tr><tr><td style="padding:6px 0;color:#E24B4A">Min sans perte</td><td style="text-align:right;font-weight:600;color:#E24B4A">'+fmtP(pm)+'</td></tr>'+(r?'<tr><td style="padding:6px 0;font-weight:600">Marge nette</td><td style="text-align:right;font-weight:600;color:'+(r.net>=0?'#1D9E75':'#E24B4A')+'">'+fmt(r.net)+'</td></tr>':'')+'</table>'+(a.notes?'<p style="margin-top:12px;font-size:13px;color:#666">'+a.notes+'</p>':'')+'<p style="margin-top:16px;font-size:11px;color:#aaa">ResellTracker '+new Date().toLocaleDateString('fr-FR')+'</p></div>';window.print();}
 
 // ── TRACKING
 const TRK_STEPS=['En preparation','Conditionnement','En transit','En livraison','Livre'];
@@ -1260,4 +1359,9 @@ function showToast(msg){
 initColorPicker();
 updateHeader();
 renderDashboard();
+// Pré-chargement photos depuis IndexedDB (rendu synchrone après)
+preloadPhotos().then(()=>{
+  renderDashboard();
+  if(document.querySelector('#screen-stock.on'))renderStock();
+}).catch(e=>console.warn('Preload photos failed:',e));
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
