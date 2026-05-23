@@ -246,10 +246,8 @@
     <div class="field"><label>PA — Prix d'achat €</label><input id="f-pa" type="number" step="0.01" placeholder="0.00" oninput="updateMargePreview()"></div>
     <input id="f-port" type="hidden" value="0">
   </div>
-  <div class="frow">
-    <div class="field"><label>Date d'achat</label><input id="f-date" type="date"></div>
-    <div class="field"><label>PV cible Vinted €</label><input id="f-pvc" type="number" step="0.01" placeholder="0.00" oninput="updateMargePreview()"></div>
-  </div>
+  <div class="field"><label>Date d'achat</label><input id="f-date" type="date"></div>
+  <input id="f-pvc" type="hidden" value="0">
   <div id="margePreview"></div><div id="pvBasAlert"></div>
   <div class="field">
     <label>N° suivi colis</label>
@@ -321,7 +319,7 @@
   <button class="bsmall g" onclick="genVintedDesc()" style="width:100%;padding:10px;margin-top:6px;border-radius:10px">📝 Générer annonce Vinted</button>
   <div id="dVintedDesc"></div>
   <button class="bsec" onclick="closeM('mDetail')">Fermer</button>
-  <button class="bdanger" onclick="suppArticle()">Supprimer</button>
+  <button class="bdanger" onclick="suppArticle()" style="background:linear-gradient(135deg,#ff4d4d,#cc0000);color:white;font-weight:700">🗑️ Supprimer cette paire</button>
 </div></div>
 
 <!-- MODAL FUTUR -->
@@ -384,6 +382,9 @@
   <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Télécharge un fichier de sauvegarde sur ton appareil (à mettre sur Google Drive par sécurité).</div>
   <button class="bsec" onclick="backupData()" style="margin-top:0">💾 Télécharger sauvegarde JSON</button>
   <button class="bsec" onclick="restoreData()">📂 Restaurer depuis un fichier JSON</button>
+  <div class="stitle" style="color:var(--red)">⚠️ Zone dangereuse</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Efface TOUTES tes données local + cloud. Irréversible.</div>
+  <button class="bdanger" onclick="resetAll()" style="background:linear-gradient(135deg,#ff4d4d,#cc0000);color:white;font-weight:700">🔥 Repartir de zéro (tout effacer)</button>
   <div class="stitle">Notifications</div>
   <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Reçois des rappels quand des articles sont en stock depuis trop longtemps.</div>
   <button class="bsec" onclick="requestNotifPermission()">🔔 Activer les notifications</button>

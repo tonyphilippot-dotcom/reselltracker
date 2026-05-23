@@ -113,6 +113,31 @@ async function cloudRestore() {
   } catch(e) { alert('Erreur : '+e.message); }
 }
 
+
+// ── 🔥 RESET COMPLET (local + cloud)
+async function resetAll(){
+  if(!confirm('⚠️ ATTENTION : Cette action va EFFACER TOUTES tes données :\n\n• Stock local (articles, ventes, achats futurs)\n• Sauvegarde cloud Cloudflare\n• Vendeurs, paiements, objectifs\n\nCette action est IRREVERSIBLE. Continuer ?'))return;
+  if(!confirm('Vraiment SÛR ? Tape OK pour confirmer la suppression définitive.'))return;
+  // Nettoyer localStorage
+  ['rt-art','rt-fut','rt-trk','rt-pay','rt-vendeurs','rt-obj','rt-cloud-last'].forEach(k=>localStorage.removeItem(k));
+  // Reset variables globales
+  articles=[];futurs=[];tracking=[];objectif=0;
+  // Nettoyer le cloud
+  const key=localStorage.getItem('rt-cloud-key');
+  if(key){
+    try{
+      await fetch(CLOUD_URL,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({_action:'backup',_key:key,_data:{articles:[],futurs:[],tracking:[],vendeurs:[],pays:[],objectif:0}})
+      });
+    }catch(e){console.log('Cloud reset failed:',e);}
+  }
+  save();
+  alert('✅ Tout a été effacé. Tu repars sur des bases propres !');
+  closeM('mSettings');
+  renderDashboard();renderStock();renderVentes();renderFuturs();
+}
+
 // Auto-backup cloud silencieux toutes les 5 min si modification
 let _cloudPending = false;
 function scheduleCloudBackup() {
@@ -728,10 +753,11 @@ function openDetail(id){
     document.getElementById('dPvBasAlert').innerHTML+='<div class="pvbas-banner" style="background:var(--red-bg);color:var(--red)">&#128683; Vendeur blackliste : '+a.vendeur+'</div>';
   }
   const pm=prixMin(a.pa||0,a.port||0);
-  document.getElementById('pMinBanner').innerHTML='<div class="pmin-banner">Prix minimum sans perte : <b>'+fmtP(pm)+'</b></div>';
-  const slider=document.getElementById('simSlider');slider.min=Math.floor(pm);slider.max=Math.ceil(pm*4);slider.value=a.pvcible||Math.ceil(pm*1.5);
-  const nslider=document.getElementById('negoSlider');nslider.min=Math.floor(pm*0.5);nslider.max=Math.ceil(pm*3);nslider.value=a.pvcible||Math.ceil(pm*1.2);
-  updateSim();updateNego();
+  const pMinEl=document.getElementById('pMinBanner');if(pMinEl)pMinEl.innerHTML='<div class="pmin-banner">Prix minimum sans perte : <b>'+fmtP(pm)+'</b></div>';
+  // Simulateurs supprimés - vérifier l'existence avant utilisation
+  const slider=document.getElementById('simSlider');if(slider){slider.min=Math.floor(pm);slider.max=Math.ceil(pm*4);slider.value=a.pvcible||Math.ceil(pm*1.5);}
+  const nslider=document.getElementById('negoSlider');if(nslider){nslider.min=Math.floor(pm*0.5);nslider.max=Math.ceil(pm*3);nslider.value=a.pvcible||Math.ceil(pm*1.2);}
+  if(slider)updateSim();if(nslider)updateNego();
   const q=encodeURIComponent(((a.marque||'')+' '+(a.modele||a.nom)+' '+(a.taille||'')).trim());
   document.getElementById('dLinks').innerHTML='<a href="https://www.stockx.com/search?s='+q+'" class="plink" target="_blank">StockX</a><a href="https://www.farfetch.com/fr/shopping/search/?q='+q+'" class="plink" target="_blank">Farfetch</a><a href="https://www.vinted.fr/catalog?search_text='+q+'" class="plink" target="_blank">Vinted</a><a href="https://www.vestiairecollective.com/search/?q='+q+'" class="plink" target="_blank">Vestiaire</a>';
   document.getElementById('dPv').value=a.pv||'';document.getElementById('dVinted').value=a.vinted||'tony';
@@ -768,8 +794,8 @@ function openDetail(id){
   openM('mDetail');
 }
 function setMainPhoto(el,src){document.getElementById('dmainPhoto').innerHTML='<img src="'+src+'">';document.querySelectorAll('#dPhotos img').forEach(i=>i.classList.remove('main'));el.classList.add('main');}
-function updateSim(){const art=articles.find(a=>a.id===currentId);if(!art)return;const pv=parseInt(document.getElementById('simSlider').value);document.getElementById('simVal').textContent=pv+' \u20ac';const r=calcEst(art.pa||0,art.port||0,pv);if(!r)return;document.getElementById('simResult').innerHTML='<div class="cbox"><div class="crow"><span>Cout</span><span>-'+fmtP(r.cout)+'</span></div><div class="crow tot"><span>Marge nette</span><span style="color:'+(r.net>=0?'var(--green)':'var(--red)')+'">'+fmt(r.net)+'</span></div><div class="crow"><span>ROI</span><span>'+r.roi.toFixed(1)+'%</span></div></div>';}
-function updateNego(){const art=articles.find(a=>a.id===currentId);if(!art)return;const pv=parseInt(document.getElementById('negoSlider').value);const pm=prixMin(art.pa||0,art.port||0);document.getElementById('negoVal').textContent=pv+' \u20ac';const r=calcEst(art.pa||0,art.port||0,pv);const ok=pv>=pm;document.getElementById('negoResult').innerHTML='<div class="crow"><span>Marge si accepte</span><span style="color:'+(ok?'var(--green)':'var(--red)')+'">'+( r?fmt(r.net):'--')+'</span></div><div style="margin-top:6px;padding:8px;border-radius:8px;background:'+(ok?'var(--green-bg)':'var(--red-bg)')+';font-size:12px;font-weight:600;color:'+(ok?'var(--green)':'var(--red)')+'">'+( ok?'OK Accepter - tu restes gagnant':'Non Refuser - en dessous du minimum')+'</div>';}
+function updateSim(){const slider=document.getElementById('simSlider');if(!slider)return;const art=articles.find(a=>a.id===currentId);if(!art)return;const pv=parseInt(slider.value);const valEl=document.getElementById('simVal');if(valEl)valEl.textContent=pv+' \u20ac';const r=calcEst(art.pa||0,art.port||0,pv);if(!r)return;const resEl=document.getElementById('simResult');if(resEl)resEl.innerHTML='<div class="cbox"><div class="crow"><span>Cout</span><span>-'+fmtP(r.cout)+'</span></div><div class="crow tot"><span>Marge nette</span><span style="color:'+(r.net>=0?'var(--green)':'var(--red)')+'">'+fmt(r.net)+'</span></div><div class="crow"><span>ROI</span><span>'+r.roi.toFixed(1)+'%</span></div></div>';}
+function updateNego(){const slider=document.getElementById('negoSlider');if(!slider)return;const art=articles.find(a=>a.id===currentId);if(!art)return;const pv=parseInt(slider.value);const pm=prixMin(art.pa||0,art.port||0);const valEl=document.getElementById('negoVal');if(valEl)valEl.textContent=pv+' \u20ac';const r=calcEst(art.pa||0,art.port||0,pv);const ok=pv>=pm;const resEl=document.getElementById('negoResult');if(resEl)resEl.innerHTML='<div class="crow"><span>Marge si accepte</span><span style="color:'+(ok?'var(--green)':'var(--red)')+'">'+(r?fmt(r.net):'--')+'</span></div><div style="margin-top:6px;padding:8px;border-radius:8px;background:'+(ok?'var(--green-bg)':'var(--red-bg)')+';font-size:12px;font-weight:600;color:'+(ok?'var(--green)':'var(--red)')+'">'+(ok?'OK Accepter - tu restes gagnant':'Non Refuser - en dessous du minimum')+'</div>';}
 function updateDetailCalc(){const art=articles.find(a=>a.id===currentId);if(!art)return;const pv=parseFloat(document.getElementById('dPv').value)||0;if(!pv)return;const cout=(art.pa||0)+(art.port||0);const net=pv-cout;const roi=cout>0?net/cout*100:0;document.getElementById('dCalc').innerHTML='<div class="cbox"><div class="crow"><span>Cout total (PA+port)</span><span>'+fmtP(cout)+'</span></div><div class="crow"><span>Prix de vente</span><span>'+fmtP(pv)+'</span></div><div class="crow tot"><span>Marge nette</span><span style="color:'+(net>=0?'var(--green)':'var(--red)')+'">'+fmt(net)+'</span></div><div class="crow"><span>ROI</span><span>'+roi.toFixed(1)+'%</span></div></div>';}
 
 // ── IA
@@ -929,22 +955,26 @@ function backupData(){
   alert('Sauvegarde téléchargée ! Mets-la sur Google Drive pour la garder en sécurité.');
 }
 function restoreData(){
-  const input=document.createElement('input');input.type='file';input.accept='.json';
+  const input=document.createElement('input');input.type='file';input.accept='.json,application/json';
   input.onchange=e=>{
     const file=e.target.files[0];if(!file)return;
     const reader=new FileReader();
     reader.onload=ev=>{
       try{
         const data=JSON.parse(ev.target.result);
-        if(!confirm('Restaurer la sauvegarde du '+new Date(data.date).toLocaleDateString('fr-FR')+' ? Tes données actuelles seront remplacées.'))return;
+        const dateStr=data.date?new Date(data.date).toLocaleDateString('fr-FR'):'inconnue';
+        if(!confirm('Restaurer la sauvegarde du '+dateStr+' ?\n('+(data.articles?data.articles.length:0)+' articles)\nTes données actuelles seront remplacées.'))return;
         if(data.articles)articles=data.articles;
         if(data.futurs)futurs=data.futurs;
         if(data.tracking)tracking=data.tracking;
         if(data.pays)localStorage.setItem('rt-pay',JSON.stringify(data.pays));
-        if(data.objectif)objectif=data.objectif;
-        save();renderDashboard();
-        alert('✅ Données restaurées !');
-      }catch(e){alert('Fichier invalide.');}
+        if(data.vendeurs)localStorage.setItem('rt-vendeurs',JSON.stringify(data.vendeurs));
+        if(data.objectif!==undefined){objectif=data.objectif;localStorage.setItem('rt-obj',objectif);}
+        save();
+        renderDashboard();renderStock();renderVentes();renderFuturs();
+        closeM('mSettings');
+        alert('✅ '+(data.articles?data.articles.length:0)+' articles restaurés ! Va sur Stock pour les voir.');
+      }catch(e){alert('Fichier invalide : '+e.message);}
     };
     reader.readAsText(file);
   };
