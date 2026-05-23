@@ -166,7 +166,7 @@ document.querySelectorAll('.mbg').forEach(m=>m.addEventListener('click',e=>{if(e
 function openAddModal(){
   if(document.getElementById('screen-futurs').classList.contains('on')){openM('mFutur');return;}
   addPhotos=[];selectedColors=[];
-  ['f-nom','f-marque','f-modele','f-taille','f-taillecm','f-pa','f-port','f-pvc','f-notes','f-tracking','f-vendeur','f-comment-vendeur'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-boite').value='marques';document.getElementById('f-note-vendeur').value='5';
+  ['f-nom','f-marque','f-modele','f-taille','f-taillecm','f-pa','f-pvc','f-notes','f-tracking','f-vendeur','f-comment-vendeur'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-port').value='0';document.getElementById('f-quantite').value='1';document.getElementById('f-boite').value='marques';document.getElementById('f-note-vendeur').value='5';
   document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('addPhotos').innerHTML='';document.getElementById('margePreview').innerHTML='';
   document.getElementById('pvBasAlert').innerHTML='';document.getElementById('importStatus').innerHTML='';
@@ -380,11 +380,9 @@ async function identifyBarcode(ean){
 // ── ARTICLE CRUD
 function saveArticle(){
   const nom=document.getElementById('f-nom').value.trim();if(!nom){alert('Entrez un nom');return;}
-  // Alerte photo manquante
   if(addPhotos.length===0){
     if(!confirm('📸 Tu n\'as pas ajouté de photo ! Continuer sans photo ?'))return;
   }
-  // Alerte doublon
   const modele=document.getElementById('f-modele').value.trim().toLowerCase();
   const taille=document.getElementById('f-taille').value.trim().toLowerCase();
   const doublons=articles.filter(a=>!['vendu','retour'].includes(a.statut)&&a.nom.toLowerCase()===nom.toLowerCase()&&(!taille||(a.taille||'').toLowerCase()===taille));
@@ -394,29 +392,52 @@ function saveArticle(){
   const pa=parseFloat(document.getElementById('f-pa').value)||0;
   const port=parseFloat(document.getElementById('f-port').value)||0;
   const trackingNum=document.getElementById('f-tracking').value;
-  const art={id:Date.now().toString(),nom,photos:[...addPhotos],marque:document.getElementById('f-marque').value,modele:document.getElementById('f-modele').value,taille:document.getElementById('f-taille').value,tailleCm:document.getElementById('f-taillecm').value,couleur:getSelectedColors(),categorie:document.getElementById('f-cat').value,plateforme:document.getElementById('f-plat').value,statut:'stock',vinted:document.getElementById('f-vinted').value,best:document.getElementById('f-best').value==='1',trackingNum,pa,port,pvcible:parseFloat(document.getElementById('f-pvc').value)||0,date:document.getElementById('f-date').value,notes:document.getElementById('f-notes').value,boite:document.getElementById('f-boite').value||'marques',vendeur:document.getElementById('f-vendeur').value||'',noteVendeur:document.getElementById('f-note-vendeur').value||'',commentVendeur:document.getElementById('f-comment-vendeur').value||'',pv:null,portVente:null,dateVente:null,retour:false};
-  // Alerte blacklist
-  if(art.vendeur && estBlackliste(art.vendeur)){
-    if(!confirm('&#128683; ATTENTION ! "'+art.vendeur+'" est dans ta blacklist ! Tu veux quand meme ajouter cet article ?'))return;
+  const quantite=Math.max(1,parseInt(document.getElementById('f-quantite').value)||1);
+  const baseArt={nom,photos:[...addPhotos],marque:document.getElementById('f-marque').value,modele:document.getElementById('f-modele').value,taille:document.getElementById('f-taille').value,tailleCm:document.getElementById('f-taillecm').value,couleur:getSelectedColors(),categorie:document.getElementById('f-cat').value,plateforme:document.getElementById('f-plat').value,statut:'stock',vinted:document.getElementById('f-vinted').value,best:document.getElementById('f-best').value==='1',pa,port,pvcible:parseFloat(document.getElementById('f-pvc').value)||0,date:document.getElementById('f-date').value,notes:document.getElementById('f-notes').value,boite:document.getElementById('f-boite').value||'marques',vendeur:document.getElementById('f-vendeur').value||'',noteVendeur:document.getElementById('f-note-vendeur').value||'',commentVendeur:document.getElementById('f-comment-vendeur').value||'',pv:null,portVente:null,dateVente:null,retour:false};
+  if(baseArt.vendeur && estBlackliste(baseArt.vendeur)){
+    if(!confirm('🚫 ATTENTION ! "'+baseArt.vendeur+'" est dans ta blacklist ! Tu veux quand meme ajouter cet article ?'))return;
   }
-  articles.push(art);
-  if(trackingNum)tracking.push({id:Date.now().toString()+'t',nom:art.nom,num:trackingNum,carrier:'Mondial Relay',date:art.date,step:2,eta:''});
-    // Enregistrer vendeur
-  if(art.vendeur){
-    ajouterOuMajVendeur(art.vendeur, art.noteVendeur, art.commentVendeur, art.id);
+  // Création de N articles identiques (quantite)
+  for(let i=0;i<quantite;i++){
+    const art={...baseArt,id:Date.now().toString()+'_'+i,trackingNum:(i===0)?trackingNum:''};
+    articles.push(art);
+    if(i===0 && trackingNum)tracking.push({id:Date.now().toString()+'t',nom:art.nom,num:trackingNum,carrier:'Mondial Relay',date:art.date,step:2,eta:''});
+    if(art.vendeur && i===0){
+      ajouterOuMajVendeur(art.vendeur, art.noteVendeur, art.commentVendeur, art.id);
+    }
   }
   save();closeM('mAdd');renderStock();renderDashboard();
 }
+
 function dupliquerArticle(){
   const a=articles.find(x=>x.id===currentId);if(!a)return;
   if(!confirm('Dupliquer "'+a.nom+'" ?'))return;
-  addPhotos=[...a.photos];selectedColors=a.couleur?a.couleur.split(', ').filter(c=>COULEURS.some(x=>x.l===c)):[];
-  document.getElementById('f-nom').value=a.nom;document.getElementById('f-marque').value=a.marque||'';
-  document.getElementById('f-modele').value=a.modele||'';document.getElementById('f-taille').value=a.taille||'';document.getElementById('f-taillecm').value=a.tailleCm||'';
-  document.getElementById('f-pa').value=a.pa||'';document.getElementById('f-port').value=a.port||'';
-  document.getElementById('f-pvc').value=a.pvcible||'';document.getElementById('f-notes').value=a.notes||'';
+  // PHOTOS
+  addPhotos=[...(a.photos||[])];
+  selectedColors=a.couleur?a.couleur.split(', ').filter(c=>COULEURS.some(x=>x.l===c)):[];
+  // CHAMPS PRINCIPAUX
+  document.getElementById('f-nom').value=a.nom||'';
+  document.getElementById('f-marque').value=a.marque||'';
+  document.getElementById('f-modele').value=a.modele||'';
+  document.getElementById('f-taille').value=a.taille||'';
+  document.getElementById('f-taillecm').value=a.tailleCm||'';
+  document.getElementById('f-pa').value=a.pa||'';
+  document.getElementById('f-port').value=a.port||0;
+  document.getElementById('f-pvc').value=a.pvcible||'';
+  document.getElementById('f-notes').value=a.notes||'';
   document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
-  document.getElementById('f-tracking').value='';document.getElementById('importStatus').innerHTML='';
+  document.getElementById('f-tracking').value=''; // tracking VIDE pour nouvelle commande
+  document.getElementById('f-quantite').value=1;
+  // CHAMPS QUI MANQUAIENT
+  if(document.getElementById('f-cat')&&a.categorie)document.getElementById('f-cat').value=a.categorie;
+  if(document.getElementById('f-plat')&&a.plateforme)document.getElementById('f-plat').value=a.plateforme;
+  if(document.getElementById('f-vinted')&&a.vinted)document.getElementById('f-vinted').value=a.vinted;
+  if(document.getElementById('f-boite')&&a.boite)document.getElementById('f-boite').value=a.boite;
+  if(document.getElementById('f-vendeur'))document.getElementById('f-vendeur').value=a.vendeur||'';
+  if(document.getElementById('f-note-vendeur')&&a.noteVendeur)document.getElementById('f-note-vendeur').value=a.noteVendeur;
+  if(document.getElementById('f-comment-vendeur'))document.getElementById('f-comment-vendeur').value=a.commentVendeur||'';
+  if(document.getElementById('f-couleur-custom'))document.getElementById('f-couleur-custom').value='';
+  document.getElementById('importStatus').innerHTML='';
   document.querySelectorAll('#colorPicker .cpill').forEach((el,i)=>{if(selectedColors.includes(COULEURS[i].l))el.classList.add('on');else el.classList.remove('on');});
   renderAddPhotos();updateMargePreview();
   document.getElementById('mAddTitle').textContent='Duplication - '+a.nom;
@@ -427,7 +448,7 @@ function marquerVendu(){
   const pv=parseFloat(document.getElementById('dPv').value);if(!pv){alert('Entrez le PV');return;}
   const art=articles.find(a=>a.id===currentId);if(!art)return;
   art.pv=pv;art.portVente=0;
-  art.vinted=document.getElementById('dVinted').value;art.statut='vendu';art.dateVente=new Date().toISOString().split('T')[0];
+  art.vinted=document.getElementById('dVinted').value;art.statut='vendu';art.dateVente=document.getElementById('dDateVente').value||new Date().toISOString().split('T')[0];
   const r=calcMarge(art);
   if(r){const pays=JSON.parse(localStorage.getItem('rt-pay')||'[]');pays.push({id:Date.now().toString(),artId:art.id,nom:art.nom,vinted:art.vinted,montant:art.pv,net:r.net,date:art.dateVente,recu:false});localStorage.setItem('rt-pay',JSON.stringify(pays));}
   save();closeM('mDetail');renderStock();renderDashboard();renderVentes();

@@ -208,6 +208,7 @@
     <div class="multi-photos" id="addPhotos" style="margin-top:8px"></div>
   </div>
   <div class="field"><label>Nom du produit *</label><input id="f-nom" type="text" placeholder="Ex: Nike Air Force 1"></div>
+  <div class="field" id="f-quantite-wrap"><label>Quantité (créera N articles identiques)</label><input id="f-quantite" type="number" min="1" value="1" step="1"></div>
   <div class="frow">
     <div class="field"><label>Marque</label><input id="f-marque" type="text" placeholder="Nike, Adidas…"></div>
     <div class="field"><label>Modèle</label><input id="f-modele" type="text" placeholder="Air Force 1…"></div>
@@ -226,7 +227,7 @@
   </div>
   <div class="frow">
     <div class="field"><label>Plateforme</label>
-      <select id="f-plat"><option>Hacoo</option><option>YepExpress</option></select>
+      <select id="f-plat"><option>YepExpress</option><option>Hacoo</option></select>
     </div>
 
   </div>
@@ -243,9 +244,7 @@
   </div>
   <div class="frow">
     <div class="field"><label>PA — Prix d'achat €</label><input id="f-pa" type="number" step="0.01" placeholder="0.00" oninput="updateMargePreview()"></div>
-    <div class="field"><label>Frais de port payés €</label><input id="f-port" type="number" step="0.01" placeholder="0.00" oninput="updateMargePreview()">
-      <div style="font-size:10px;color:var(--text2);margin-top:2px">Ce que TU as payé à l'achat</div>
-    </div>
+    <input id="f-port" type="hidden" value="0">
   </div>
   <div class="frow">
     <div class="field"><label>Date d'achat</label><input id="f-date" type="date"></div>
@@ -306,23 +305,11 @@
   <div id="dPvBasAlert"></div>
   <div class="dgrid" id="dGrid"></div>
   <div id="dAiBox"></div>
-  <div class="sep"></div>
-  <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Simulateur de prix</div>
-  <div class="sim">
-    <div class="sim-row"><span>Prix de vente</span><span id="simVal">0 €</span></div>
-    <input type="range" id="simSlider" min="0" max="200" value="0" step="1" oninput="updateSim()">
-  </div>
-  <div id="simResult"></div>
-  <div id="pMinBanner"></div>
-  <div class="nego-box">
-    <div class="nego-title">💬 Simulateur négociation Vinted</div>
-    <div class="sim-row" style="margin-bottom:6px"><span>Offre acheteur</span><span id="negoVal">0 €</span></div>
-    <input type="range" id="negoSlider" min="0" max="200" value="0" step="1" oninput="updateNego()">
-    <div id="negoResult" style="margin-top:8px"></div>
-  </div>
+
   <div class="plinks" id="dLinks"></div>
   <div class="sep"></div>
   <div class="field"><label>Marquer vendu — PV Vinted €</label><input type="number" id="dPv" step="0.01" placeholder="Prix de vente" oninput="updateDetailCalc()"></div>
+  <div class="field"><label>Date de vente</label><input type="date" id="dDateVente"></div>
   <div class="field"><label>Compte Vinted</label>
     <select id="dVinted"><option value="tony">Tony 💙</option><option value="laetitia">Laetitia 💗</option></select>
   </div>
