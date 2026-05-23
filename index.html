@@ -70,12 +70,13 @@
         <input type="text" id="stockSearch" placeholder="Rechercher…" oninput="renderStock()">
       </div>
       <div class="pills" id="stockPills">
-        <button class="pill on" onclick="setFilter('tous',this,'stockFilter')">Tout</button>
+        <button class="pill on" onclick="setFilter('actifs',this,'stockFilter')">📦 Actifs</button>
         <button class="pill" onclick="setFilter('attente',this,'stockFilter')">🕐 Attente</button>
         <button class="pill" onclick="setFilter('stock',this,'stockFilter')">En stock</button>
         <button class="pill" onclick="setFilter('vente',this,'stockFilter')">En vente</button>
-        <button class="pill" onclick="setFilter('vendu',this,'stockFilter')">Vendus</button>
-        <button class="pill" onclick="setFilter('retour',this,'stockFilter')">Retours</button>
+        <button class="pill" onclick="setFilter('vendu',this,'stockFilter')">✅ Vendus</button>
+        <button class="pill" onclick="setFilter('retour',this,'stockFilter')">↩️ Retours</button>
+        <button class="pill" onclick="setFilter('tous',this,'stockFilter')">Tout voir</button>
         <button class="pill" onclick="setFilter('Hacoo',this,'stockFilter')">Hacoo</button>
         <button class="pill" onclick="setFilter('YepExpress',this,'stockFilter')">YepExpress</button>
         <button class="pill" onclick="setFilter('Chaussures',this,'stockFilter')">👟</button>

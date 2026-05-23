@@ -99,7 +99,7 @@ let futurs=_loadWithFallback('rt-fut');
 let tracking=_loadWithFallback('rt-trk');
 let objectif=parseFloat(localStorage.getItem('rt-obj')||'0');
 let addPhotos=[],selectedColors=[],currentId=null;
-let stockFilter='tous',futurFilter='tous',ventesTab='env',histoTab='m',chartMode='m',payTab='attente',dashPeriod='month';
+let stockFilter='actifs',futurFilter='tous',ventesTab='env',histoTab='m',chartMode='m',payTab='attente',dashPeriod='month';
 let chartObj=null,qrStream=null,qrInterval=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 function save(){
@@ -761,7 +761,7 @@ function setFilter(f,el,vn){window[vn]=f;el.closest('.pills').querySelectorAll('
 function renderStock(){
   const search=(document.getElementById('stockSearch').value||'').toLowerCase();
   let arts=[...articles];
-  const filters={attente:a=>a.statut==='attente',stock:a=>a.statut==='stock',vente:a=>a.statut==='vente',vendu:a=>a.statut==='vendu',retour:a=>a.statut==='retour',Hacoo:a=>a.plateforme==='Hacoo',YepExpress:a=>a.plateforme==='YepExpress',tony:a=>a.vinted==='tony',laetitia:a=>a.vinted==='laetitia'};
+  const filters={actifs:a=>!['vendu','retour'].includes(a.statut),attente:a=>a.statut==='attente',stock:a=>a.statut==='stock',vente:a=>a.statut==='vente',vendu:a=>a.statut==='vendu',retour:a=>a.statut==='retour',Hacoo:a=>a.plateforme==='Hacoo',YepExpress:a=>a.plateforme==='YepExpress',tony:a=>a.vinted==='tony',laetitia:a=>a.vinted==='laetitia'};
   ['Chaussures','V\u00eatements','Sacs','Accessoires'].forEach(c=>{filters[c]=a=>a.categorie===c;});
   if(filters[stockFilter])arts=arts.filter(filters[stockFilter]);
   if(search)arts=arts.filter(a=>[a.nom,a.marque,a.modele,a.taille,a.couleur,a.notes].join(' ').toLowerCase().includes(search));
