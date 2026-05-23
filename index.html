@@ -190,28 +190,23 @@
 <div class="mbg" id="mAdd"><div class="modal">
   <div class="mhandle"></div><div class="mtitle" id="mAddTitle">Nouvel article</div>
   <div style="background:linear-gradient(135deg,var(--green-bg),rgba(155,89,182,0.08));border:1px solid rgba(31,217,154,0.25);border-radius:14px;padding:14px;margin-bottom:12px">
-    <div style="font-size:13px;font-weight:700;margin-bottom:3px">🤖 Scan &amp; Import auto</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Boîte · Étiquette · Commande Hacoo/Yep → tout rempli automatiquement</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
-      <button class="bsmall g" style="padding:11px 6px;border-radius:10px;font-size:12px;font-weight:600;line-height:1.4" onclick="openBarcodeScanner()">📦 Code-barres<br><span style="font-size:10px;font-weight:400;opacity:.8">scan direct</span></button>
-      <button class="bsmall p" style="padding:11px 6px;border-radius:10px;font-size:12px;font-weight:600;line-height:1.4" onclick="document.getElementById('piUniversal').click()">📸 Photo<br><span style="font-size:10px;font-weight:400;opacity:.8">étiquette / commande</span></button>
+    <div style="font-size:13px;font-weight:700;margin-bottom:3px">📸 Photos du produit</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">💡 1<sup>ère</sup> photo (étiquette/commande) → remplit les champs auto. Les suivantes = photos d'annonce.</div>
+    <input type="file" accept="image/*" capture="environment" id="piCam" style="display:none" multiple onchange="handlePhotos(event)">
+    <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" id="piGal" style="display:none" multiple onchange="handlePhotos(event)">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">
+      <button class="bsmall" style="padding:10px 4px;border-radius:10px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.06)" onclick="document.getElementById('piCam').click()">📷<br>Caméra</button>
+      <button class="bsmall" style="padding:10px 4px;border-radius:10px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.06)" onclick="openGal()">🖼️<br>Galerie</button>
+      <button class="bsmall g" style="padding:10px 4px;border-radius:10px;font-size:11px;font-weight:600" onclick="openBarcodeScanner()">📦<br>Code-barres</button>
     </div>
-    <input type="file" accept="image/*" id="piUniversal" style="display:none" onchange="importUniversal(event)">
     <div id="barcodeScannerWrap" style="display:none;margin-top:8px">
       <div class="qr-wrap"><video id="barcodeVideo" autoplay playsinline muted></video><div class="qr-overlay"><div class="qr-frame" style="width:220px;height:80px"></div></div></div>
       <button class="bsmall" onclick="closeBarcodeScanner()" style="width:100%;padding:8px;border-radius:8px;margin-top:4px">✕ Annuler</button>
     </div>
     <div id="barcodeStatus" style="font-size:12px;margin-top:4px"></div>
     <div id="importStatus"></div>
+    <div class="multi-photos" id="addPhotos" style="margin-top:8px"></div>
   </div>
-  <div class="field"><label>Photos (plusieurs à la fois)</label></div>
-  <input type="file" accept="image/*" capture="environment" id="piCam" style="display:none" multiple onchange="handlePhotos(event)">
-  <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" id="piGal" style="display:none" multiple onchange="handlePhotos(event)">
-  <div class="photo-zone">
-    <button class="photo-btn" onclick="document.getElementById('piCam').click()">📷 Caméra</button>
-    <button class="photo-btn" onclick="openGal()">🖼️ Galerie</button>
-  </div>
-  <div class="multi-photos" id="addPhotos"></div>
   <div class="field"><label>Nom du produit *</label><input id="f-nom" type="text" placeholder="Ex: Nike Air Force 1"></div>
   <div class="frow">
     <div class="field"><label>Marque</label><input id="f-marque" type="text" placeholder="Nike, Adidas…"></div>

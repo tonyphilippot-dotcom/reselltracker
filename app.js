@@ -176,7 +176,28 @@ function openAddModal(){
 function openGal(){const el=document.getElementById('piGal');el.removeAttribute('capture');el.click();}
 
 // ── PHOTOS
-function handlePhotos(e){Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>{addPhotos.push(ev.target.result);renderAddPhotos();};r.readAsDataURL(file);});e.target.value='';}
+async function handlePhotos(e){
+  const files=Array.from(e.target.files);
+  e.target.value='';
+  if(!files.length)return;
+  // Si pas encore de photo ET les champs nom+marque sont vides → on tente l'analyse IA sur la 1ère
+  const empty = !document.getElementById('f-nom').value.trim() && !document.getElementById('f-marque').value.trim();
+  const shouldAnalyze = addPhotos.length === 0 && empty;
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    if(i===0 && shouldAnalyze){
+      // 1ère photo + champs vides → analyse IA via importUniversal
+      await importUniversalFromFile(file);
+    } else {
+      // Photo additionnelle → juste l'ajouter
+      await new Promise(resolve=>{
+        const r=new FileReader();
+        r.onload=ev=>{addPhotos.push(ev.target.result);renderAddPhotos();resolve();};
+        r.readAsDataURL(file);
+      });
+    }
+  }
+}
 function renderAddPhotos(){document.getElementById('addPhotos').innerHTML=addPhotos.map((p,i)=>`<div class="mpt"><img src="${p}"><button onclick="addPhotos.splice(${i},1);renderAddPhotos()">x</button></div>`).join('');}
 
 // ── IMPORT IA
@@ -202,6 +223,10 @@ async function compressImage(file){
 // ── IMPORT UNIVERSEL (étiquette, commande Hacoo/Yep, photo produit, code-barres)
 async function importUniversal(e){
   const file=e.target.files[0];if(!file)return;
+  await importUniversalFromFile(file);
+  e.target.value='';
+}
+async function importUniversalFromFile(file){
   const status=document.getElementById('importStatus');
   status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--purple)"><span class="spin"></span>Analyse en cours…</div>';
   try{
@@ -245,24 +270,17 @@ async function importUniversal(e){
     }
     addPhotos.push('data:image/jpeg;base64,'+b64);renderAddPhotos();
     updateMargePreview();
-    // ── EAN : utilisé UNIQUEMENT pour combler les champs vides (jamais écraser)
-    const visualOK = (r.nom && r.marque);
-    if(r.ean && r.ean.length>=8 && !visualOK){
-      // Lecture visuelle incomplète → on tente l'EAN pour compléter
-      status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--blue)"><span class="spin"></span>Complément via EAN…</div>';
-      await identifyBarcodeFillOnly(r.ean);
-    }
+    // ── Photo = lecture visuelle UNIQUEMENT. L'EAN n'est PAS utilisé.
+    //    (pour identifier via EAN, l'utilisateur clique sur le bouton dédié "Code-barres")
     const filled=[r.nom,r.marque,r.taille,r.tailleCm,r.couleur,r.pa>0?'PA':''].filter(Boolean);
     status.innerHTML=filled.length
       ?'<div style="margin-top:8px;font-size:12px;color:var(--green)">✅ Importé ! Vérifie et complète.</div>'
       :'<div style="margin-top:8px;font-size:12px;color:var(--amber)">⚠️ Rien extrait, photo illisible ?</div>';
-    // Auto-clear status après 5 sec
     setTimeout(()=>{const s=document.getElementById('importStatus');if(s)s.innerHTML='';},5000);
   }catch(err){
     console.error('Import error:',err);
     status.innerHTML='<div style="margin-top:8px;font-size:12px;color:var(--red)">Erreur: '+err.message+'</div>';
   }
-  e.target.value='';
 }
 // ── QR SCANNER
 async function openQrScanner(){
