@@ -403,7 +403,9 @@ async function identifyBarcode(ean){
 }
 
 // ── ARTICLE CRUD
+let _savingArticle=false;
 function saveArticle(){
+  if(_savingArticle)return; // 🔒 anti-double-clic
   const nom=document.getElementById('f-nom').value.trim();if(!nom){alert('Entrez un nom');return;}
   if(addPhotos.length===0){
     if(!confirm('📸 Tu n\'as pas ajouté de photo ! Continuer sans photo ?'))return;
@@ -423,15 +425,20 @@ function saveArticle(){
     if(!confirm('🚫 ATTENTION ! "'+baseArt.vendeur+'" est dans ta blacklist ! Tu veux quand meme ajouter cet article ?'))return;
   }
   // Création de N articles identiques (quantite)
+  _savingArticle=true;
   for(let i=0;i<quantite;i++){
-    const art={...baseArt,id:Date.now().toString()+'_'+i,trackingNum:(i===0)?trackingNum:''};
+    const art={...baseArt,id:Date.now().toString()+'_'+i+'_'+Math.random().toString(36).slice(2,6),trackingNum:(i===0)?trackingNum:''};
     articles.push(art);
     if(i===0 && trackingNum)tracking.push({id:Date.now().toString()+'t',nom:art.nom,num:trackingNum,carrier:'Mondial Relay',date:art.date,step:2,eta:''});
     if(art.vendeur && i===0){
       ajouterOuMajVendeur(art.vendeur, art.noteVendeur, art.commentVendeur, art.id);
     }
   }
-  save();closeM('mAdd');renderStock();renderDashboard();
+  save();
+  closeM('mAdd');
+  showToast('✅ '+(quantite>1?quantite+' paires':'Paire')+' ajoutée'+(quantite>1?'s':'')+' au stock');
+  renderStock();renderDashboard();
+  setTimeout(()=>{_savingArticle=false;},500);
 }
 
 function dupliquerArticle(){
@@ -468,15 +475,32 @@ function dupliquerArticle(){
   document.getElementById('mAddTitle').textContent='Duplication - '+a.nom;
   closeM('mDetail');openM('mAdd');
 }
-function suppArticle(){if(!confirm('Supprimer ?'))return;articles=articles.filter(a=>a.id!==currentId);save();closeM('mDetail');renderStock();renderDashboard();}
+function suppArticle(){
+  const art=articles.find(a=>a.id===currentId);
+  if(!art)return;
+  if(!confirm('Supprimer définitivement "'+art.nom+'" ?'))return;
+  articles=articles.filter(a=>a.id!==currentId);
+  save();
+  closeM('mDetail');
+  showToast('🗑️ Paire supprimée');
+  renderStock();renderDashboard();renderVentes();
+}
+let _selling=false;
 function marquerVendu(){
+  if(_selling)return; // 🔒 anti-double-clic
   const pv=parseFloat(document.getElementById('dPv').value);if(!pv){alert('Entrez le PV');return;}
   const art=articles.find(a=>a.id===currentId);if(!art)return;
+  if(art.statut==='vendu'){alert('Cette paire est déjà vendue !');return;}
+  _selling=true;
   art.pv=pv;art.portVente=0;
   art.vinted=document.getElementById('dVinted').value;art.statut='vendu';art.dateVente=document.getElementById('dDateVente').value||new Date().toISOString().split('T')[0];
   const r=calcMarge(art);
   if(r){const pays=JSON.parse(localStorage.getItem('rt-pay')||'[]');pays.push({id:Date.now().toString(),artId:art.id,nom:art.nom,vinted:art.vinted,montant:art.pv,net:r.net,date:art.dateVente,recu:false});localStorage.setItem('rt-pay',JSON.stringify(pays));}
-  save();closeM('mDetail');renderStock();renderDashboard();renderVentes();
+  save();
+  closeM('mDetail');
+  showToast('💰 Vendue à '+pv+'€ !');
+  renderStock();renderDashboard();renderVentes();
+  setTimeout(()=>{_selling=false;},500);
 }
 function racheterArticle(){
   const a=articles.find(x=>x.id===currentId);if(!a)return;
@@ -1154,8 +1178,8 @@ document.querySelector('.content').addEventListener('touchend',e=>{
     }
     swipeTargetId=null;return;
   }
-  // Swipe entre écrans
-  if(Math.abs(dx)<60)return;
+  // Swipe entre écrans (seuil augmenté pour éviter sensibilité)
+  if(Math.abs(dx)<150)return;
   const active=document.querySelector('.scr.on');if(!active)return;
   const name=active.id.replace('screen-','');
   const idx=SWIPE_SCREENS.indexOf(name);if(idx<0)return;
