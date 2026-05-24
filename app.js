@@ -1361,10 +1361,18 @@ function showDebug(){
     details='\n\n📋 1er article :\n'+
       '   nom: '+(a.nom||'(vide)')+'\n'+
       '   statut: "'+(a.statut||'(vide)')+'"\n'+
-      '   plateforme: '+(a.plateforme||'(vide)')+'\n'+
+      '   plateforme: "'+(a.plateforme||'(vide)')+'"\n'+
+      '   pa: '+(a.pa!==undefined?a.pa:'(undefined)')+'\n'+
+      '   port: '+(a.port!==undefined?a.port:'(undefined)')+'\n'+
       '   pv: '+(a.pv||'(null)')+'\n'+
       '   vinted: '+(a.vinted||'(vide)')+'\n'+
       '   dateVente: '+(a.dateVente||'(vide)');
+    // Récap rapide de tous les articles
+    let recap='\n\n📊 Tous les articles :\n';
+    articles.forEach((x,i)=>{
+      recap+='   #'+(i+1)+' '+(x.nom||'?').substring(0,20)+' | plat:"'+(x.plateforme||'?')+'" | pa:'+(x.pa||0)+' port:'+(x.port||0)+'\n';
+    });
+    details+=recap;
   }
   const msg='🩺 DIAGNOSTIC\n\n'+
     '📦 articles en mémoire : '+articles.length+'\n'+
