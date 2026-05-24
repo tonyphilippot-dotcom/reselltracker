@@ -162,12 +162,43 @@ function getCloudKey() {
   return k;
 }
 
+// ── 📸 Sync photos via cloud (embed/extract data URLs)
+async function _articlesForCloud(){
+  const result=[];
+  for(const art of articles){
+    const photos=[];
+    for(const p of(art.photos||[])){
+      if(typeof p==='string'&&p.startsWith('data:'))photos.push(p);
+      else{
+        const url=await idbGetPhoto(p);
+        if(url)photos.push(url);
+      }
+    }
+    result.push({...art,photos});
+  }
+  return result;
+}
+async function _articlesFromCloud(arts){
+  for(const art of(arts||[])){
+    const newPhotos=[];
+    for(const p of(art.photos||[])){
+      if(typeof p==='string'&&p.startsWith('data:')){
+        const id=await storePhoto(p);
+        newPhotos.push(id);
+      }else newPhotos.push(p);
+    }
+    art.photos=newPhotos;
+  }
+  return arts;
+}
+
 async function cloudBackup(silent) {
   const key = getCloudKey();
   if (!key) { if(!silent) alert('Sauvegarde annulée'); return false; }
   try {
+    const articlesEmbed = await _articlesForCloud();
     const data = {
-      articles, futurs, tracking,
+      articles: articlesEmbed, futurs, tracking,
       vendeurs: JSON.parse(localStorage.getItem('rt-vendeurs')||'[]'),
       pays: JSON.parse(localStorage.getItem('rt-pay')||'[]'),
       objectif
@@ -209,7 +240,7 @@ async function cloudRestore() {
     const d = new Date(r.backup.date).toLocaleString('fr-FR');
     if (!confirm('Sauvegarde trouvée du '+d+'. Restaurer ? Tes données actuelles seront remplacées.')) return;
     const data = r.backup.data;
-    if (data.articles) articles = data.articles;
+    if (data.articles) articles = await _articlesFromCloud(data.articles);
     if (data.futurs) futurs = data.futurs;
     if (data.tracking) tracking = data.tracking;
     if (data.vendeurs) localStorage.setItem('rt-vendeurs', JSON.stringify(data.vendeurs));
@@ -1360,7 +1391,7 @@ async function _doRefresh(){
       const r=await resp.json();
       if(r.backup&&r.backup.data){
         const d=r.backup.data;
-        if(d.articles)articles=d.articles;
+        if(d.articles)articles=await _articlesFromCloud(d.articles);
         if(d.futurs)futurs=d.futurs;
         if(d.tracking)tracking=d.tracking;
         if(d.vendeurs)localStorage.setItem('rt-vendeurs',JSON.stringify(d.vendeurs));
