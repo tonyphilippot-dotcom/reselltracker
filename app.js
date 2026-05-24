@@ -99,7 +99,7 @@ let futurs=_loadWithFallback('rt-fut');
 let tracking=_loadWithFallback('rt-trk');
 let objectif=parseFloat(localStorage.getItem('rt-obj')||'0');
 let addPhotos=[],selectedColors=[],currentId=null;
-let stockFilter='actifs',futurFilter='tous',ventesTab='env',histoTab='m',chartMode='m',payTab='attente',dashPeriod='month';
+let stockFilter='tous',futurFilter='tous',ventesTab='env',histoTab='m',chartMode='m',payTab='attente',dashPeriod='month';
 let chartObj=null,qrStream=null,qrInterval=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 function save(){
@@ -1365,7 +1365,7 @@ function showDebug(){
     '🕐 Dernière sauvegarde : '+(savedAt?new Date(savedAt).toLocaleString('fr-FR'):'jamais')+'\n'+
     '☁️ Identifiant cloud : '+(cloudKey||'aucun')+'\n'+
     '☁️ Dernière sync cloud : '+(cloudLast?new Date(cloudLast).toLocaleString('fr-FR'):'jamais')+'\n'+
-    '💽 Stockage utilisé : '+Math.round(storageSize/1024)+' Ko'+details;
+    '💽 Stockage utilisé : '+Math.round(storageSize/1024)+' Ko\n'+'🎯 Filtre Stock actif : '+stockFilter+details;
   alert(msg);
 }
 
