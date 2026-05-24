@@ -709,10 +709,11 @@ function renderDashboard(){
   document.getElementById('kpi-immo').textContent=fmtP(immo);document.getElementById('kpi-vnd').textContent=mV.length;
   const allTimeEl=document.getElementById('kpi-alltime');if(allTimeEl)allTimeEl.textContent=fmtP(benTotal);
   document.getElementById('kpi-tony').textContent=fmtP(bT);document.getElementById('kpi-laet').textContent=fmtP(bL);
-  // 💸 Total dépensé (PA + port de TOUTES les paires Hacoo + YepExpress, y compris vendues/retours)
+  // 💸 Total dépensé (PA + port de TOUTES les paires, y compris vendues/retours)
   let totalDepense=0;
   articles.forEach(a=>{
-    if(a.plateforme==='Hacoo'||a.plateforme==='YepExpress'){
+    const p=(a.plateforme||'').toLowerCase();
+    if(p.includes('hacoo')||p.includes('yep')||p===''){
       totalDepense+=(a.pa||0)+(a.port||0);
     }
   });
