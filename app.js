@@ -709,6 +709,15 @@ function renderDashboard(){
   document.getElementById('kpi-immo').textContent=fmtP(immo);document.getElementById('kpi-vnd').textContent=mV.length;
   const allTimeEl=document.getElementById('kpi-alltime');if(allTimeEl)allTimeEl.textContent=fmtP(benTotal);
   document.getElementById('kpi-tony').textContent=fmtP(bT);document.getElementById('kpi-laet').textContent=fmtP(bL);
+  // 💸 Total dépensé par plateforme (PA + port de TOUTES les paires, y compris vendues/retours)
+  let depHacoo=0,depYep=0;
+  articles.forEach(a=>{
+    const cout=(a.pa||0)+(a.port||0);
+    if(a.plateforme==='Hacoo')depHacoo+=cout;
+    else if(a.plateforme==='YepExpress')depYep+=cout;
+  });
+  const hEl=document.getElementById('kpi-hacoo');if(hEl)hEl.textContent=fmtP(depHacoo);
+  const yEl=document.getElementById('kpi-yep');if(yEl)yEl.textContent=fmtP(depYep);
   const rappels=articles.filter(a=>['stock','vente'].includes(a.statut)&&a.date&&ageJours(a.date)>30);
   const rappelsMise=articles.filter(a=>a.statut==='stock'&&a.date&&ageJours(a.date)>3&&ageJours(a.date)<=30);
   const pvBas=articles.filter(a=>!['vendu','retour'].includes(a.statut)&&a.pvcible&&a.pvcible<prixMin(a.pa||0,a.port||0));
