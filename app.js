@@ -757,7 +757,18 @@ chartObj=new Chart(canvas,{type:'bar',data:{labels,datasets},options:{responsive
 }
 
 // ── STOCK
-function setFilter(f,el,vn){window[vn]=f;el.closest('.pills').querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));el.classList.add('on');if(vn==='stockFilter')renderStock();else renderFuturs();}
+function setFilter(f,el,vn){
+  // Mise à jour réelle des variables (window[vn] ne marche pas avec 'let')
+  if(vn==='stockFilter')stockFilter=f;
+  else if(vn==='futurFilter')futurFilter=f;
+  else if(vn==='payTab')payTab=f;
+  else window[vn]=f; // fallback
+  el.closest('.pills').querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  if(vn==='stockFilter')renderStock();
+  else if(vn==='futurFilter')renderFuturs();
+  else if(vn==='payTab')renderPaiements();
+}
 function renderStock(){
   const search=(document.getElementById('stockSearch').value||'').toLowerCase();
   let arts=[...articles];
