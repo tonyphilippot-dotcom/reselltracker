@@ -301,6 +301,33 @@ const COULEURS=[
   {l:'Tie-dye',c:'#FF69B4'},{l:'Rayures',c:'#4466aa'},{l:'Carreaux',c:'#aa4444'},
   {l:'Fleurs',c:'#FF85A1'},{l:'Camouflage',c:'#4B5320'},
 ];
+
+// ── 🏷️ LISTE DE MARQUES (autocomplete + persistance)
+function getMarques(){
+  try{return JSON.parse(localStorage.getItem('rt-marques')||'[]');}catch(e){return [];}
+}
+function addMarque(nom){
+  if(!nom||!nom.trim())return;
+  nom=nom.trim();
+  const marques=getMarques();
+  if(!marques.some(m=>m.toLowerCase()===nom.toLowerCase())){
+    marques.push(nom);
+    marques.sort();
+    localStorage.setItem('rt-marques',JSON.stringify(marques));
+    renderMarquesDatalist();
+  }
+}
+function renderMarquesDatalist(){
+  // Marques par défaut + ajoutées + déjà présentes dans les articles
+  const defaults=['Nike','Adidas','New Balance','Asics','Puma','Reebok','Converse','Vans','Jordan','Yeezy','Lacoste','Gucci','Louis Vuitton','Balenciaga','Fila'];
+  const stored=getMarques();
+  const fromArticles=[...new Set(articles.map(a=>a.marque).filter(Boolean))];
+  const all=[...new Set([...defaults,...stored,...fromArticles])].sort();
+  const dl=document.getElementById('marquesList');
+  if(dl)dl.innerHTML=all.map(m=>'<option value="'+m.replace(/"/g,'&quot;')+'">').join('');
+}
+// Sauvegarder la marque à l'enregistrement
+
 function initColorPicker(){document.getElementById('colorPicker').innerHTML=COULEURS.map((c,i)=>`<button type="button" class="cpill" onclick="toggleColor(${i},this)"><span class="cswatch" style="background:${c.c}"></span>${c.l}</button>`).join('');}
 function toggleColor(i,el){const lbl=COULEURS[i].l;const idx=selectedColors.indexOf(lbl);if(idx>=0){selectedColors.splice(idx,1);el.classList.remove('on');}else{selectedColors.push(lbl);el.classList.add('on');}checkPvBas();}
 function getSelectedColors(){const custom=document.getElementById('f-couleur-custom').value.trim();return[...selectedColors,...(custom?[custom]:[])].join(', ');}
@@ -331,14 +358,17 @@ document.querySelectorAll('.mbg').forEach(m=>m.addEventListener('click',e=>{if(e
 function openAddModal(){
   if(document.getElementById('screen-futurs').classList.contains('on')){openM('mFutur');return;}
   addPhotos=[];selectedColors=[];
-  ['f-nom','f-marque','f-modele','f-taille','f-taillecm','f-pa','f-pvc','f-notes','f-tracking','f-vendeur','f-comment-vendeur'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-port').value='0';document.getElementById('f-quantite').value='1';document.getElementById('f-boite').value='marques';document.getElementById('f-note-vendeur').value='5';
+  ['f-nom','f-marque','f-modele','f-taille','f-taillecm','f-pa','f-pvc','f-notes','f-tracking','f-vendeur','f-comment-vendeur'].forEach(id=>document.getElementById(id).value='');if(document.getElementById('f-statut'))document.getElementById('f-statut').value='stock';document.getElementById('f-port').value='0';document.getElementById('f-quantite').value='1';document.getElementById('f-boite').value='marques';document.getElementById('f-note-vendeur').value='5';
   document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('addPhotos').innerHTML='';document.getElementById('margePreview').innerHTML='';
   document.getElementById('pvBasAlert').innerHTML='';document.getElementById('importStatus').innerHTML='';
   document.getElementById('mAddTitle').textContent='Nouvel article';
   resetColorPicker();openM('mAdd');
 }
-function openGal(){const el=document.getElementById('piGal');el.removeAttribute('capture');el.click();}
+function openGal(){
+  const el=document.getElementById('piGal');
+  if(el){el.removeAttribute('capture');el.setAttribute('accept','image/*');el.click();}
+}
 
 // ── PHOTOS
 async function handlePhotos(e){
@@ -586,7 +616,7 @@ function saveArticle(){
   const port=parseFloat(document.getElementById('f-port').value)||0;
   const trackingNum=document.getElementById('f-tracking').value;
   const quantite=Math.max(1,parseInt(document.getElementById('f-quantite').value)||1);
-  const baseArt={nom,photos:[...addPhotos],marque:document.getElementById('f-marque').value,modele:document.getElementById('f-modele').value,taille:document.getElementById('f-taille').value,tailleCm:document.getElementById('f-taillecm').value,couleur:getSelectedColors(),categorie:document.getElementById('f-cat').value,plateforme:document.getElementById('f-plat').value,statut:'stock',vinted:document.getElementById('f-vinted').value,best:document.getElementById('f-best').value==='1',pa,port,pvcible:parseFloat(document.getElementById('f-pvc').value)||0,date:document.getElementById('f-date').value,notes:document.getElementById('f-notes').value,boite:document.getElementById('f-boite').value||'marques',vendeur:document.getElementById('f-vendeur').value||'',noteVendeur:document.getElementById('f-note-vendeur').value||'',commentVendeur:document.getElementById('f-comment-vendeur').value||'',pv:null,portVente:null,dateVente:null,retour:false};
+  const marqueVal=document.getElementById('f-marque').value;if(marqueVal)addMarque(marqueVal);const baseArt={nom,photos:[...addPhotos],marque:marqueVal,modele:document.getElementById('f-modele').value,taille:document.getElementById('f-taille').value,tailleCm:document.getElementById('f-taillecm').value,couleur:getSelectedColors(),categorie:document.getElementById('f-cat').value,plateforme:document.getElementById('f-plat').value,statut:(document.getElementById('f-statut')?document.getElementById('f-statut').value:'stock'),vinted:document.getElementById('f-vinted').value,best:document.getElementById('f-best').value==='1',pa,port,pvcible:parseFloat(document.getElementById('f-pvc').value)||0,date:document.getElementById('f-date').value,notes:document.getElementById('f-notes').value,boite:document.getElementById('f-boite').value||'marques',vendeur:document.getElementById('f-vendeur').value||'',noteVendeur:document.getElementById('f-note-vendeur').value||'',commentVendeur:document.getElementById('f-comment-vendeur').value||'',pv:null,portVente:null,dateVente:null,retour:false};
   if(baseArt.vendeur && estBlackliste(baseArt.vendeur)){
     if(!confirm('🚫 ATTENTION ! "'+baseArt.vendeur+'" est dans ta blacklist ! Tu veux quand meme ajouter cet article ?'))return;
   }
@@ -686,6 +716,23 @@ function racheterArticle(){
   articles.push(art);
   save();closeM('mDetail');renderStock();renderDashboard();
   alert('✅ Article recréé dans ton stock !');
+}
+
+
+// ── 🔄 Changement de statut depuis le détail
+function changeStatut(newStatut){
+  const art=articles.find(a=>a.id===currentId);if(!art)return;
+  art.statut=newStatut;
+  // Si on passe en attente/stock/vente, retirer les infos de vente
+  if(['attente','stock','vente'].includes(newStatut)){
+    art.retour=false;
+    // Garder les infos de vente précédentes au cas où (ne pas effacer pv/dateVente)
+  }
+  save();
+  const lbls={attente:'🕐 En attente',stock:'📦 En stock',vente:'📢 En vente',vendu:'✅ Vendu',retour:'↩️ Retour'};
+  showToast('Statut changé : '+lbls[newStatut]);
+  renderStock();renderDashboard();renderVentes();
+  openDetail(currentId); // recharge le détail
 }
 
 function marquerRetour(){const art=articles.find(a=>a.id===currentId);if(!art)return;if(!confirm('Marquer retour acheteur ?'))return;art.retour=true;art.statut='retour';art.pv=null;art.dateVente=null;save();closeM('mDetail');renderStock();renderDashboard();}
@@ -1383,26 +1430,12 @@ async function _doRefresh(){
   if(_refreshing)return;
   _refreshing=true;
   if(_pullInd){_pullInd.innerHTML='<span class="spin" style="border-color:#000;border-top-color:transparent"></span>';_pullInd.style.top='20px';}
-  // Sync depuis le cloud si configuré
+  // SÉCURITÉ : Pull-to-refresh ne touche PAS au cloud (évite d'écraser les données locales).
+  // Pour récupérer depuis cloud, utiliser le bouton dédié dans Réglages.
+  // On force juste un cloud BACKUP des données locales (push, pas pull)
   const cloudKey=localStorage.getItem('rt-cloud-key');
   if(cloudKey){
-    try{
-      const resp=await fetch(CLOUD_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({_action:'restore',_key:cloudKey})});
-      const r=await resp.json();
-      if(r.backup&&r.backup.data){
-        const d=r.backup.data;
-        if(d.articles)articles=await _articlesFromCloud(d.articles);
-        if(d.futurs)futurs=d.futurs;
-        if(d.tracking)tracking=d.tracking;
-        if(d.vendeurs)localStorage.setItem('rt-vendeurs',JSON.stringify(d.vendeurs));
-        if(d.pays)localStorage.setItem('rt-pay',JSON.stringify(d.pays));
-        if(d.objectif!==undefined){objectif=d.objectif;localStorage.setItem('rt-obj',objectif);}
-        localStorage.setItem('rt-art',JSON.stringify(articles));
-        localStorage.setItem('rt-fut',JSON.stringify(futurs));
-        localStorage.setItem('rt-trk',JSON.stringify(tracking));
-        localStorage.setItem('rt-cloud-last',new Date().toISOString());
-      }
-    }catch(e){console.warn('Pull refresh cloud failed:',e);}
+    try{await cloudBackup(true);}catch(e){}
   }
   // Re-rendu écran actif
   const active=document.querySelector('.scr.on');
@@ -1418,7 +1451,7 @@ async function _doRefresh(){
       setTimeout(()=>{if(_pullInd)_pullInd.innerHTML='🔄';},300);
     }
     _refreshing=false;
-    showToast('🔄 Actualisé'+(cloudKey?' (cloud)':''));
+    showToast(cloudKey?'☁️ Sauvegardé dans le cloud':'🔄 Actualisé');
   },400);
 }
 document.querySelector('.content').addEventListener('touchstart',e=>{
@@ -1522,6 +1555,7 @@ function showToast(msg){
 }
 
 initColorPicker();
+renderMarquesDatalist();
 updateHeader();
 renderDashboard();
 // Pré-chargement photos depuis IndexedDB (rendu synchrone après)

@@ -214,7 +214,7 @@
   <div class="field"><label>Nom du produit *</label><input id="f-nom" type="text" placeholder="Ex: Nike Air Force 1"></div>
   <div class="field" id="f-quantite-wrap"><label>Quantité (créera N articles identiques)</label><input id="f-quantite" type="number" min="1" value="1" step="1"></div>
   <div class="frow">
-    <div class="field"><label>Marque</label><input id="f-marque" type="text" placeholder="Nike, Adidas…"></div>
+    <div class="field"><label>Marque</label><input id="f-marque" type="text" list="marquesList" placeholder="Nike, Adidas… (tape pour rechercher)" autocomplete="off"><datalist id="marquesList"></datalist></div>
     <div class="field"><label>Modèle</label><input id="f-modele" type="text" placeholder="Air Force 1…"></div>
   </div>
   <div class="frow3">
@@ -233,7 +233,9 @@
     <div class="field"><label>Plateforme</label>
       <select id="f-plat"><option>YepExpress</option><option>Hacoo</option></select>
     </div>
-
+    <div class="field"><label>Statut</label>
+      <select id="f-statut"><option value="attente">🕐 En attente (commandée)</option><option value="stock" selected>📦 En stock (reçue)</option><option value="vente">📢 En vente (sur Vinted)</option></select>
+    </div>
   </div>
   <div class="frow">
     <div class="field"><label>Compte Vinted</label>
@@ -319,6 +321,15 @@
   <div id="dVendeurBox"></div>
   <button class="bprimary" id="dBtnVendu" onclick="marquerVendu()">✓ Marquer comme vendu</button>
   <button class="bsmall r" id="dBtnRetour" onclick="marquerRetour()" style="width:100%;padding:10px;margin-top:6px;border-radius:10px">↩️ Retour acheteur</button>
+  <div style="margin-top:10px;padding:10px;background:var(--card2);border-radius:10px">
+    <label style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">🔄 Changer le statut</label>
+    <select id="dChangeStatut" onchange="if(this.value)changeStatut(this.value)" style="width:100%;margin-top:6px;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:10px;color:var(--text);font-family:inherit">
+      <option value="">— Choisir un nouveau statut —</option>
+      <option value="attente">🕐 En attente</option>
+      <option value="stock">📦 En stock</option>
+      <option value="vente">📢 En vente</option>
+    </select>
+  </div>
   <button class="bsmall g" id="dBtnRacheter" onclick="racheterArticle()" style="width:100%;padding:10px;margin-top:6px;border-radius:10px;display:none">🔄 Racheter ce modèle</button>
   <button class="bsmall g" onclick="genVintedDesc()" style="width:100%;padding:10px;margin-top:6px;border-radius:10px">📝 Générer annonce Vinted</button>
   <div id="dVintedDesc"></div>
