@@ -1337,6 +1337,91 @@ document.querySelector('.content').addEventListener('touchend',e=>{
 },{passive:true});
 
 
+
+// ── 🔄 PULL-TO-REFRESH (sync cloud)
+let _pullStartY=0,_pullCurY=0,_pulling=false,_pullInd=null,_refreshing=false;
+function _createPullIndicator(){
+  if(_pullInd)return;
+  _pullInd=document.createElement('div');
+  _pullInd.id='pullRefresh';
+  _pullInd.style.cssText='position:fixed;top:-60px;left:50%;transform:translateX(-50%);width:48px;height:48px;background:#1fd99a;color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;z-index:99999;transition:top .25s cubic-bezier(.34,1.56,.64,1);box-shadow:0 4px 20px rgba(31,217,154,0.4);pointer-events:none';
+  _pullInd.innerHTML='🔄';
+  document.body.appendChild(_pullInd);
+}
+async function _doRefresh(){
+  if(_refreshing)return;
+  _refreshing=true;
+  if(_pullInd){_pullInd.innerHTML='<span class="spin" style="border-color:#000;border-top-color:transparent"></span>';_pullInd.style.top='20px';}
+  // Sync depuis le cloud si configuré
+  const cloudKey=localStorage.getItem('rt-cloud-key');
+  if(cloudKey){
+    try{
+      const resp=await fetch(CLOUD_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({_action:'restore',_key:cloudKey})});
+      const r=await resp.json();
+      if(r.backup&&r.backup.data){
+        const d=r.backup.data;
+        if(d.articles)articles=d.articles;
+        if(d.futurs)futurs=d.futurs;
+        if(d.tracking)tracking=d.tracking;
+        if(d.vendeurs)localStorage.setItem('rt-vendeurs',JSON.stringify(d.vendeurs));
+        if(d.pays)localStorage.setItem('rt-pay',JSON.stringify(d.pays));
+        if(d.objectif!==undefined){objectif=d.objectif;localStorage.setItem('rt-obj',objectif);}
+        localStorage.setItem('rt-art',JSON.stringify(articles));
+        localStorage.setItem('rt-fut',JSON.stringify(futurs));
+        localStorage.setItem('rt-trk',JSON.stringify(tracking));
+        localStorage.setItem('rt-cloud-last',new Date().toISOString());
+      }
+    }catch(e){console.warn('Pull refresh cloud failed:',e);}
+  }
+  // Re-rendu écran actif
+  const active=document.querySelector('.scr.on');
+  if(active){
+    const name=active.id.replace('screen-','');
+    const renders={dashboard:renderDashboard,stock:renderStock,ventes:renderVentes,futurs:renderFuturs,historique:renderHisto,tracking:renderTracking,planning:renderCalendar,paiements:renderPaiements,marche:renderMarche,vendeurs:renderVendeurs};
+    if(renders[name])renders[name]();
+  }
+  // Animation de fin
+  setTimeout(()=>{
+    if(_pullInd){
+      _pullInd.style.top='-60px';
+      setTimeout(()=>{if(_pullInd)_pullInd.innerHTML='🔄';},300);
+    }
+    _refreshing=false;
+    showToast('🔄 Actualisé'+(cloudKey?' (cloud)':''));
+  },400);
+}
+document.querySelector('.content').addEventListener('touchstart',e=>{
+  const c=e.currentTarget;
+  if(c.scrollTop<=0&&!_refreshing){
+    _pullStartY=e.touches[0].clientY;
+    _pulling=true;
+    _createPullIndicator();
+  }
+},{passive:true});
+document.querySelector('.content').addEventListener('touchmove',e=>{
+  if(!_pulling||_refreshing)return;
+  _pullCurY=e.touches[0].clientY;
+  const dist=_pullCurY-_pullStartY;
+  if(dist>0&&_pullInd){
+    const top=Math.min(20,-60+dist*0.4);
+    _pullInd.style.top=top+'px';
+    _pullInd.style.transform='translateX(-50%) rotate('+dist*2+'deg)';
+  }
+},{passive:true});
+document.querySelector('.content').addEventListener('touchend',()=>{
+  if(!_pulling)return;
+  const dist=_pullCurY-_pullStartY;
+  _pulling=false;
+  if(dist>90){
+    _doRefresh();
+  }else if(_pullInd){
+    _pullInd.style.top='-60px';
+    _pullInd.style.transform='translateX(-50%) rotate(0deg)';
+  }
+  _pullStartY=0;_pullCurY=0;
+},{passive:true});
+
+
 // ── 🩺 DIAGNOSTIC (pour vérifier ce qui est en mémoire)
 function showDebug(){
   const main=localStorage.getItem('rt-art');
