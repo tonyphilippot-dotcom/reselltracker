@@ -1326,14 +1326,35 @@ function showDebug(){
   const cloudLast=localStorage.getItem('rt-cloud-last');
   let storageSize=0;
   try{for(let k in localStorage)if(localStorage.hasOwnProperty(k))storageSize+=(localStorage[k].length+k.length);}catch(e){}
+  // Détails statuts
+  const statuts={};
+  articles.forEach(a=>{
+    const s=a.statut||'(vide)';
+    statuts[s]=(statuts[s]||0)+1;
+  });
+  let statutsList='';
+  Object.keys(statuts).forEach(s=>{statutsList+='   • '+s+' : '+statuts[s]+'\n';});
+  // Détails du 1er article si présent
+  let details='';
+  if(articles.length>0){
+    const a=articles[0];
+    details='\n\n📋 1er article :\n'+
+      '   nom: '+(a.nom||'(vide)')+'\n'+
+      '   statut: "'+(a.statut||'(vide)')+'"\n'+
+      '   plateforme: '+(a.plateforme||'(vide)')+'\n'+
+      '   pv: '+(a.pv||'(null)')+'\n'+
+      '   vinted: '+(a.vinted||'(vide)')+'\n'+
+      '   dateVente: '+(a.dateVente||'(vide)');
+  }
   const msg='🩺 DIAGNOSTIC\n\n'+
     '📦 articles en mémoire : '+articles.length+'\n'+
+    '   Statuts :\n'+statutsList+
     '💾 localStorage rt-art : '+(main?JSON.parse(main).length+' articles':'VIDE')+'\n'+
     '🔒 backup rt-art-bak : '+(bak?JSON.parse(bak).length+' articles':'VIDE')+'\n'+
     '🕐 Dernière sauvegarde : '+(savedAt?new Date(savedAt).toLocaleString('fr-FR'):'jamais')+'\n'+
     '☁️ Identifiant cloud : '+(cloudKey||'aucun')+'\n'+
     '☁️ Dernière sync cloud : '+(cloudLast?new Date(cloudLast).toLocaleString('fr-FR'):'jamais')+'\n'+
-    '💽 Stockage utilisé : '+Math.round(storageSize/1024)+' Ko';
+    '💽 Stockage utilisé : '+Math.round(storageSize/1024)+' Ko'+details;
   alert(msg);
 }
 
