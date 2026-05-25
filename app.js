@@ -376,6 +376,59 @@ async function resetAll(){
   renderDashboard();renderStock();renderVentes();renderFuturs();
 }
 
+
+// ── 🔄 MIGRATION : upload toutes les photos locales (IDB + data URLs) vers R2
+async function migratePhotosToR2(){
+  if(!confirm('☁️ Migrer toutes tes photos locales vers le cloud R2 ?\n\nÇa permettra de les voir sur tous tes appareils.\nL\'opération peut prendre 1-2 minutes.'))return;
+  let total=0,migrated=0,failed=0;
+  // Compter d'abord
+  for(const a of articles){
+    for(const p of(a.photos||[])){
+      if(typeof p==='string' && !p.startsWith('http'))total++;
+    }
+  }
+  if(total===0){alert('Aucune photo à migrer.');return;}
+  // Indicateur visuel
+  const ind=document.createElement('div');
+  ind.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a2e;color:#fff;padding:20px 28px;border-radius:14px;z-index:999999;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.5);min-width:240px';
+  ind.innerHTML='<div style="font-size:14px;margin-bottom:8px">📸 Migration en cours...</div><div id="migProg" style="font-size:24px;font-weight:700;color:#1fd99a">0 / '+total+'</div>';
+  document.body.appendChild(ind);
+  // Migrer
+  for(const a of articles){
+    const newPhotos=[];
+    for(const p of(a.photos||[])){
+      if(typeof p!=='string'){continue;}
+      if(p.startsWith('http://')||p.startsWith('https://')){
+        newPhotos.push(p);continue; // déjà sur R2
+      }
+      // Récupérer le data URL
+      let dataURL=null;
+      if(p.startsWith('data:'))dataURL=p;
+      else dataURL=await idbGetPhoto(p);
+      if(!dataURL){failed++;continue;}
+      // Upload R2
+      const r2Url=await uploadPhotoToR2(dataURL);
+      if(r2Url){
+        newPhotos.push(r2Url);
+        _photoCache[r2Url]=dataURL;
+        migrated++;
+      }else{
+        newPhotos.push(p); // garder l'ancien si fail
+        failed++;
+      }
+      const prog=document.getElementById('migProg');
+      if(prog)prog.textContent=(migrated+failed)+' / '+total;
+    }
+    a.photos=newPhotos;
+  }
+  save();
+  // Forcer un cloud backup avec les nouvelles URLs
+  if(localStorage.getItem('rt-cloud-key'))await cloudBackup(true);
+  document.body.removeChild(ind);
+  alert('✅ Migration terminée !\n\n'+migrated+' photos migrées sur R2\n'+(failed>0?failed+' échecs':''));
+  renderStock();renderDashboard();
+}
+
 // Auto-backup cloud silencieux toutes les 5 min si modification
 let _cloudPending = false;
 function scheduleCloudBackup() {
