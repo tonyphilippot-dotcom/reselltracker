@@ -81,7 +81,12 @@ async function preloadPhotos(){
 // Récupère le data URL d'une photo (depuis cache ou base64 direct)
 function getPhotoURL(idOrData){
   if(!idOrData)return '';
-  if(typeof idOrData==='string'&&idOrData.startsWith('data:'))return idOrData;
+  if(typeof idOrData!=='string')return '';
+  // URL R2 publique : retourner directement (multi-device)
+  if(idOrData.startsWith('http://')||idOrData.startsWith('https://'))return idOrData;
+  // Data URL : retourner directement
+  if(idOrData.startsWith('data:'))return idOrData;
+  // Sinon : ID local IndexedDB → cherche dans le cache
   return _photoCache[idOrData]||'';
 }
 // Génère un ID unique pour une photo
@@ -148,6 +153,46 @@ function autoBackup(){
 // ── ☁️ CLOUD SYNC
 const CLOUD_URL = 'https://resell-proxy.tony-philippot.workers.dev';
 
+// ════════════════════════════════════════════════════════════════
+// ☁️ STOCKAGE PHOTOS R2 (Cloudflare)
+// ════════════════════════════════════════════════════════════════
+const R2_PUBLIC_URL = 'https://pub-c8ab60c2c612445fa8794ab359c5a23f.r2.dev';
+
+// Upload une photo (data URL) vers R2 → retourne l'URL publique
+async function uploadPhotoToR2(dataURL){
+  try{
+    // Extraire le blob depuis le data URL
+    const resp=await fetch(dataURL);
+    const blob=await resp.blob();
+    const photoId='photo_'+Date.now()+'_'+Math.random().toString(36).slice(2,10)+'.jpg';
+    // PUT vers le worker
+    const putResp=await fetch(CLOUD_URL+'/photo/'+photoId,{
+      method:'PUT',
+      headers:{'Content-Type':'image/jpeg'},
+      body:blob
+    });
+    if(!putResp.ok)throw new Error('Upload failed: '+putResp.status);
+    // L'URL publique de la photo
+    return R2_PUBLIC_URL+'/'+photoId;
+  }catch(e){
+    console.error('uploadPhotoToR2 error:',e);
+    return null;
+  }
+}
+
+// Supprime une photo de R2 (si l'URL pointe vers notre bucket)
+async function deletePhotoFromR2(url){
+  if(!url||typeof url!=='string'||!url.startsWith(R2_PUBLIC_URL))return;
+  const photoId=url.replace(R2_PUBLIC_URL+'/','');
+  try{await fetch(CLOUD_URL+'/photo/'+photoId,{method:'DELETE'});}
+  catch(e){console.warn('Delete photo failed:',e);}
+}
+
+// Helper : vérifie si c'est une URL R2
+function isR2Url(s){return typeof s==='string'&&s.startsWith(R2_PUBLIC_URL);}
+
+
+
 function getCloudKey() {
   let k = localStorage.getItem('rt-cloud-key');
   if (!k) {
@@ -164,14 +209,27 @@ function getCloudKey() {
 
 // ── 📸 Sync photos via cloud (embed/extract data URLs)
 async function _articlesForCloud(){
+  // Avec R2, les photos sont des URLs publiques → on les garde tels quels.
+  // Pour les anciennes photos en IDB (ancien système), on tente upload R2 maintenant.
   const result=[];
   for(const art of articles){
     const photos=[];
     for(const p of(art.photos||[])){
-      if(typeof p==='string'&&p.startsWith('data:'))photos.push(p);
-      else{
-        const url=await idbGetPhoto(p);
-        if(url)photos.push(url);
+      if(typeof p!=='string')continue;
+      if(p.startsWith('http://')||p.startsWith('https://')){
+        // Déjà sur R2 → garder l'URL
+        photos.push(p);
+      }else if(p.startsWith('data:')){
+        // Vieux data URL → upload vers R2 (one-time)
+        const r2Url=await uploadPhotoToR2(p);
+        photos.push(r2Url||p);
+      }else{
+        // ID IndexedDB → récupérer le data URL puis upload R2
+        const dataURL=await idbGetPhoto(p);
+        if(dataURL){
+          const r2Url=await uploadPhotoToR2(dataURL);
+          photos.push(r2Url||dataURL);
+        }
       }
     }
     result.push({...art,photos});
@@ -179,10 +237,17 @@ async function _articlesForCloud(){
   return result;
 }
 async function _articlesFromCloud(arts){
+  // Avec R2 : les URLs publiques restent telles quelles (chaque appareil les charge depuis R2)
+  // Les anciens data URLs sont gardés en IDB pour compatibilité
   for(const art of(arts||[])){
     const newPhotos=[];
     for(const p of(art.photos||[])){
-      if(typeof p==='string'&&p.startsWith('data:')){
+      if(typeof p!=='string')continue;
+      if(p.startsWith('http://')||p.startsWith('https://')){
+        // URL R2 publique : garder telle quelle, accessible depuis tout appareil
+        newPhotos.push(p);
+      }else if(p.startsWith('data:')){
+        // Vieux data URL : stocker en IDB local
         const id=await storePhoto(p);
         newPhotos.push(id);
       }else newPhotos.push(p);
@@ -384,11 +449,20 @@ async function handlePhotos(e){
     if(i===0 && shouldAnalyze){
       await importUniversalFromFile(file);
     } else {
-      // Compression douce + stockage dans IndexedDB (capacité énorme)
+      // Compression + upload vers R2 (multi-device) avec fallback IDB
       const dataURL=await compressPhoto(file,1200,0.85);
       if(dataURL){
-        const id=await storePhoto(dataURL);
-        addPhotos.push(id);
+        // Tentative R2 d'abord
+        const r2Url=await uploadPhotoToR2(dataURL);
+        if(r2Url){
+          addPhotos.push(r2Url);
+          // Aussi en cache local pour rapidité
+          _photoCache[r2Url]=dataURL;
+        }else{
+          // Fallback : IndexedDB local
+          const id=await storePhoto(dataURL);
+          addPhotos.push(id);
+        }
         renderAddPhotos();
       }
     }
@@ -483,11 +557,17 @@ async function importUniversalFromFile(file){
       });
       if(!selectedColors.length)document.getElementById('f-couleur-custom').value=r.couleur;
     }
-    // Stocker la photo en IDB (capacité énorme, qualité haute conservée)
+    // Upload R2 (multi-device) avec fallback IDB
     const storedURL=await compressPhoto(file,1200,0.85);
     if(storedURL){
-      const id=await storePhoto(storedURL);
-      addPhotos.push(id);
+      const r2Url=await uploadPhotoToR2(storedURL);
+      if(r2Url){
+        addPhotos.push(r2Url);
+        _photoCache[r2Url]=storedURL;
+      }else{
+        const id=await storePhoto(storedURL);
+        addPhotos.push(id);
+      }
       renderAddPhotos();
     }
     updateMargePreview();
