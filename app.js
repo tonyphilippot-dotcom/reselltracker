@@ -191,6 +191,39 @@ async function deletePhotoFromR2(url){
 // Helper : vérifie si c'est une URL R2
 function isR2Url(s){return typeof s==='string'&&s.startsWith(R2_PUBLIC_URL);}
 
+// ── 🔄 Vérification cloud au démarrage (Option B : propose si plus récent)
+async function checkCloudOnStart(){
+  const cloudKey=localStorage.getItem('rt-cloud-key');
+  if(!cloudKey)return; // Pas de cloud configuré
+  const localSavedAt=localStorage.getItem('rt-saved-at');
+  const localTime=localSavedAt?new Date(localSavedAt).getTime():0;
+  try{
+    const resp=await fetch(CLOUD_URL,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({_action:'restore',_key:cloudKey})
+    });
+    const r=await resp.json();
+    if(!r.backup||!r.backup.date)return; // Pas de backup cloud
+    const cloudTime=new Date(r.backup.date).getTime();
+    // Si cloud > local de plus de 30 secondes : restaurer automatiquement
+    if(cloudTime > localTime + 30000){
+      const d=r.backup.data;
+      if(d.articles)articles=await _articlesFromCloud(d.articles);
+      if(d.futurs)futurs=d.futurs;
+      if(d.tracking)tracking=d.tracking;
+      if(d.vendeurs)localStorage.setItem('rt-vendeurs',JSON.stringify(d.vendeurs));
+      if(d.pays)localStorage.setItem('rt-pay',JSON.stringify(d.pays));
+      if(d.objectif!==undefined){objectif=d.objectif;localStorage.setItem('rt-obj',objectif);}
+      save();
+      const cloudCount=articles.length;
+      showToast('☁️ Synchronisé ('+cloudCount+' articles)');
+      renderDashboard();renderStock();renderVentes();renderFuturs();
+    }
+  }catch(e){console.warn('checkCloudOnStart failed:',e);}
+}
+
+
+
 
 
 function getCloudKey() {
@@ -1642,5 +1675,7 @@ renderDashboard();
 preloadPhotos().then(()=>{
   renderDashboard();
   if(document.querySelector('#screen-stock.on'))renderStock();
+  // 🔄 Vérifier le cloud après 2 secondes (laisse le temps de charger)
+  setTimeout(()=>checkCloudOnStart(),2000);
 }).catch(e=>console.warn('Preload photos failed:',e));
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
