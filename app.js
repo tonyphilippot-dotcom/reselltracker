@@ -1685,7 +1685,17 @@ function showDebug(){
     // Récap rapide de tous les articles
     let recap='\n\n📊 Tous les articles :\n';
     articles.forEach((x,i)=>{
-      recap+='   #'+(i+1)+' '+(x.nom||'?').substring(0,20)+' | plat:"'+(x.plateforme||'?')+'" | pa:'+(x.pa||0)+' port:'+(x.port||0)+'\n';
+      const nphotos=(x.photos||[]).length;
+      let phType='';
+      if(nphotos>0){
+        const p=x.photos[0];
+        if(typeof p!=='string')phType='?';
+        else if(p.startsWith('http'))phType='☁️R2';
+        else if(p.startsWith('data:'))phType='💾data';
+        else if(p.startsWith('p_'))phType='📦IDB';
+        else phType='?';
+      }
+      recap+='   #'+(i+1)+' '+(x.nom||'?').substring(0,18)+' | photos:'+nphotos+(nphotos>0?'('+phType+')':'')+' | pa:'+(x.pa||0)+'\n';
     });
     details+=recap;
   }
