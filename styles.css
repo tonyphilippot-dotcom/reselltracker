@@ -12,7 +12,7 @@ html,body{height:100vh;height:100dvh;height:var(--app-h,100vh);background:var(--
 .obj-labels b{color:var(--green);font-family:'DM Mono',monospace}
 .obj-bg{height:4px;background:var(--card2);border-radius:2px}
 .obj-fill{height:4px;background:var(--green);border-radius:2px;transition:width .5s}
-.tabbar{display:flex;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:env(safe-area-inset-bottom,8px);position:relative;z-index:50}
+.tabbar{display:flex;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:calc(env(safe-area-inset-bottom,16px) + 4px);position:relative;z-index:50}
 .tbb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 2px 8px;gap:3px;border:none;background:none;color:var(--text2);font-family:inherit;font-size:9px;cursor:pointer;position:relative;min-height:50px}
 .tbb svg{width:20px;height:20px}.tbb.on{color:var(--accent)}
 .tbb.on::after{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:var(--accent);border-radius:0 0 2px 2px}
