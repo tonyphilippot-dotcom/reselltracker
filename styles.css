@@ -15,7 +15,7 @@ html,body{height:100vh;height:100dvh;height:var(--app-h,100vh);background:var(--
 .tabbar{display:flex;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:env(safe-area-inset-bottom,0);position:relative;z-index:50}
 .tbb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:8px 2px 4px;gap:4px;border:none;background:none;color:var(--text2);font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;position:relative;min-height:60px}
 .tbb svg{width:22px;height:22px;flex-shrink:0;display:block}
-.tbb span{display:block;font-size:11px;line-height:1.1;color:inherit;white-space:nowrap}
+.tbb::after{content:attr(data-label);display:block;font-size:10px;line-height:1.1;color:var(--text2);white-space:nowrap}
 .tbb.on{color:var(--accent)}
 .tbb.on::after{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:var(--accent);border-radius:0 0 2px 2px}
 .content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;position:relative}
