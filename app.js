@@ -314,7 +314,7 @@ async function cloudBackup(silent) {
     if (r.saved) {
       localStorage.setItem('rt-cloud-last', new Date().toISOString());
       if (!silent) {
-        showToast('☁️ Sauvegardé dans le cloud');
+        showToast('✅ Paires enregistrées dans le cloud');
         renderDashboard();
       }
       return true;
@@ -388,9 +388,14 @@ let _cloudPending = false;
 function scheduleCloudBackup() {
   if (_cloudPending) return;
   _cloudPending = true;
-  setTimeout(() => {
+  setTimeout(async () => {
     _cloudPending = false;
-    if (localStorage.getItem('rt-cloud-key')) cloudBackup(true);
+    if (localStorage.getItem('rt-cloud-key')) {
+      const success = await cloudBackup(true);
+      if (success) {
+        showToast('☁️ Paires synchronisées dans le cloud');
+      }
+    }
   }, 30000); // 30 sec après la dernière modif
 }
 
@@ -1550,13 +1555,10 @@ async function _doRefresh(){
   if(_refreshing)return;
   _refreshing=true;
   if(_pullInd){_pullInd.innerHTML='<span class="spin" style="border-color:#000;border-top-color:transparent"></span>';_pullInd.style.top='20px';}
-  // SÉCURITÉ : Pull-to-refresh ne touche PAS au cloud (évite d'écraser les données locales).
-  // Pour récupérer depuis cloud, utiliser le bouton dédié dans Réglages.
-  // On force juste un cloud BACKUP des données locales (push, pas pull)
-  const cloudKey=localStorage.getItem('rt-cloud-key');
-  if(cloudKey){
-    try{await cloudBackup(true);}catch(e){}
-  }
+  // ✅ SÉCURITÉ : Pull-to-refresh = SEULEMENT refresh local, ZÉRO sauvegarde cloud!
+  // Sinon les données d'un téléphone écrasent celles de l'autre.
+  // La sync automatique se fait via checkCloudOnStart() (au démarrage) + scheduleCloudBackup() (après modifs)
+  
   // Re-rendu écran actif
   const active=document.querySelector('.scr.on');
   if(active){
@@ -1571,7 +1573,7 @@ async function _doRefresh(){
       setTimeout(()=>{if(_pullInd)_pullInd.innerHTML='🔄';},300);
     }
     _refreshing=false;
-    showToast(cloudKey?'☁️ Sauvegardé dans le cloud':'🔄 Actualisé');
+    showToast('🔄 Actualisé');
   },400);
 }
 document.querySelector('.content').addEventListener('touchstart',e=>{
