@@ -216,9 +216,11 @@ async function checkCloudOnStart(){
     const localArticleCount=articles.length;
     
     // ✅ Restaurer SI:
-    // 1) Cloud est plus récent de +30 sec OU
-    // 2) Cloud a plus d'articles que le local (meilleure source)
-    if(cloudTime > localTime + 30000 || cloudArticleCount > localArticleCount){
+    // 1) Cloud est plus récent de +30 sec (l'autre appareil a fait des modifs) OU
+    // 2) Local est COMPLÈTEMENT VIDE et cloud a des données (premier démarrage / cache vidé)
+    // ❌ NE PAS restaurer si on a moins d'articles que le cloud mais qu'on est plus récent
+    //    (cas suppression: l'utilisateur vient de supprimer, le cloud est en retard)
+    if(cloudTime > localTime + 30000 || (localArticleCount === 0 && cloudArticleCount > 0)){
       const d=r.backup.data;
       if(d.articles) articles=await _articlesFromCloud(d.articles);
       if(d.futurs) futurs=d.futurs;
