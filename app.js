@@ -1,3 +1,4 @@
+
 // ── 📱 FIX iOS PWA : forcer la vraie hauteur de l'écran
 function _setRealHeight(){
   document.documentElement.style.setProperty('--app-h',window.innerHeight+'px');
@@ -208,10 +209,16 @@ async function checkCloudOnStart(){
   try{
     const resp=await fetch(CLOUD_URL,{method:'POST',body:JSON.stringify({_action:'restore',_key:cloudKey})});
     const r=await resp.json();
-    if(!r.backup||!r.backup.date) return;
+    if(!r.backup||!r.backup.date||!r.backup.data) return;
     const cloudTime=new Date(r.backup.date).getTime();
     const localTime=localStorage.getItem('rt-saved-at')?new Date(localStorage.getItem('rt-saved-at')).getTime():0;
-    if(cloudTime > localTime + 30000){
+    const cloudArticleCount=(r.backup.data.articles||[]).length;
+    const localArticleCount=articles.length;
+    
+    // ✅ Restaurer SI:
+    // 1) Cloud est plus récent de +30 sec OU
+    // 2) Cloud a plus d'articles que le local (meilleure source)
+    if(cloudTime > localTime + 30000 || cloudArticleCount > localArticleCount){
       const d=r.backup.data;
       if(d.articles) articles=await _articlesFromCloud(d.articles);
       if(d.futurs) futurs=d.futurs;
@@ -409,7 +416,8 @@ const COULEURS=[
   {l:'Multicolore',c:'#ff69b4'},{l:'\uD83D\uDC06 L\u00e9opard',c:'#D4A017'},{l:'\uD83E\uDD92 Girafe',c:'#C68E1A'},
   {l:'\uD83E\uDD93 Z\u00e8bre',c:'#555'},{l:'\uD83D\uDC0D Python',c:'#6B8E23'},{l:'\uD83D\uDC0A Crocodile',c:'#2D5016'},
   {l:'Tie-dye',c:'#FF69B4'},{l:'Rayures',c:'#4466aa'},{l:'Carreaux',c:'#aa4444'},
-  {l:'Fleurs',c:'#FF85A1'},{l:'Camouflage',c:'#4B5320'},
+  {l:'Fleurs',c:'#FF85A1'},{l:'Camouflage',c:'#4B5320'},{l:'✨ Argent',c:'#E8E8E8'},
+  {l:'💛 Doré',c:'#FFD700'},{l:'✨ Paillettes',c:'#E6D5B8'},
 ];
 
 // ── 🏷️ LISTE DE MARQUES (autocomplete + persistance)
