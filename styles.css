@@ -12,7 +12,7 @@ html,body{height:100vh;height:100dvh;background:var(--bg);color:var(--text);font
 .obj-labels b{color:var(--green);font-family:'DM Mono',monospace}
 .obj-bg{height:4px;background:var(--card2);border-radius:2px}
 .obj-fill{height:4px;background:var(--green);border-radius:2px;transition:width .5s}
-.tabbar{display:flex;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:max(8px,env(safe-area-inset-bottom,8px));padding-top:8px;position:relative;z-index:50;min-height:60px}
+.tabbar{display:flex;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:max(34px,env(safe-area-inset-bottom,34px));padding-top:8px;position:relative;z-index:50;min-height:60px}
 .tbb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:6px 2px 2px;gap:3px;border:none;background:none;color:var(--text2);font-family:inherit;font-size:10px;font-weight:600;cursor:pointer;position:relative;min-height:64px}
 .tbb svg{width:22px;height:22px;flex-shrink:0;display:block}
 .tbb::after{content:attr(data-label);display:block;font-size:10px;line-height:1.1;color:var(--text2);white-space:nowrap}
