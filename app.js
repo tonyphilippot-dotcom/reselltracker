@@ -211,16 +211,16 @@ async function checkCloudOnStart(){
     const r=await resp.json();
     if(!r.backup||!r.backup.date||!r.backup.data) return;
     const cloudTime=new Date(r.backup.date).getTime();
-    const localTime=localStorage.getItem('rt-saved-at')?new Date(localStorage.getItem('rt-saved-at')).getTime():0;
+    // ✅ Utiliser rt-cloud-last (dernière sync cloud réussie) au lieu de rt-saved-at
+    // Comme ça on détecte si le cloud a été modifié par un autre appareil depuis notre dernière sync
+    const lastCloudSync=localStorage.getItem('rt-cloud-last')?new Date(localStorage.getItem('rt-cloud-last')).getTime():0;
     const cloudArticleCount=(r.backup.data.articles||[]).length;
     const localArticleCount=articles.length;
     
     // ✅ Restaurer SI:
-    // 1) Cloud est plus récent de +30 sec (l'autre appareil a fait des modifs) OU
+    // 1) Cloud a été modifié depuis notre dernière sync (un autre appareil a modifié) OU
     // 2) Local est COMPLÈTEMENT VIDE et cloud a des données (premier démarrage / cache vidé)
-    // ❌ NE PAS restaurer si on a moins d'articles que le cloud mais qu'on est plus récent
-    //    (cas suppression: l'utilisateur vient de supprimer, le cloud est en retard)
-    if(cloudTime > localTime + 30000 || (localArticleCount === 0 && cloudArticleCount > 0)){
+    if(cloudTime > lastCloudSync + 2000 || (localArticleCount === 0 && cloudArticleCount > 0)){
       const d=r.backup.data;
       if(d.articles) articles=await _articlesFromCloud(d.articles);
       if(d.futurs) futurs=d.futurs;
@@ -229,6 +229,8 @@ async function checkCloudOnStart(){
       if(d.pays) localStorage.setItem('rt-pay',JSON.stringify(d.pays));
       if(d.objectif!==undefined){objectif=d.objectif;localStorage.setItem('rt-obj',objectif);}
       save();
+      // ✅ Mettre à jour rt-cloud-last pour éviter de re-restaurer en boucle
+      localStorage.setItem('rt-cloud-last',r.backup.date);
       showToast('☁️ Synchronisé ('+articles.length+' articles)');
       renderDashboard();renderStock();renderVentes();renderFuturs();
     }
@@ -392,20 +394,52 @@ async function resetAll(){
 
 // ── 🔄 MIGRATION : upload toutes les photos locales (IDB + data URLs) vers R2
 
-// Auto-backup cloud silencieux après modification (3 sec au lieu de 30)
+// Auto-backup cloud SMART - vérifie le cloud avant de push pour ne pas écraser les modifs d'un autre appareil
 let _cloudPending = false;
 function scheduleCloudBackup() {
   if (_cloudPending) return;
   _cloudPending = true;
   setTimeout(async () => {
     _cloudPending = false;
-    if (localStorage.getItem('rt-cloud-key')) {
-      const success = await cloudBackup(true);
-      if (success) {
-        showToast('☁️ Paires synchronisées dans le cloud');
+    const cloudKey = localStorage.getItem('rt-cloud-key');
+    if (!cloudKey) return;
+    
+    // ✅ AVANT de push, vérifier si le cloud a été modifié par un autre appareil
+    try {
+      const resp = await fetch(CLOUD_URL, {method:'POST', body:JSON.stringify({_action:'restore',_key:cloudKey})});
+      const r = await resp.json();
+      if (r.backup && r.backup.date) {
+        const cloudTime = new Date(r.backup.date).getTime();
+        const lastSync = localStorage.getItem('rt-cloud-last') ? new Date(localStorage.getItem('rt-cloud-last')).getTime() : 0;
+        
+        if (cloudTime > lastSync + 2000) {
+          // ⚠️ Le cloud a été modifié par un autre appareil ! Restaurer plutôt qu'écraser
+          const d = r.backup.data;
+          if (d.articles) articles = await _articlesFromCloud(d.articles);
+          if (d.futurs) futurs = d.futurs;
+          if (d.tracking) tracking = d.tracking;
+          if (d.vendeurs) localStorage.setItem('rt-vendeurs', JSON.stringify(d.vendeurs));
+          if (d.pays) localStorage.setItem('rt-pay', JSON.stringify(d.pays));
+          if (d.objectif !== undefined) { objectif = d.objectif; localStorage.setItem('rt-obj', objectif); }
+          localStorage.setItem('rt-cloud-last', r.backup.date);
+          // Sauvegarder localStorage directement sans appeler save() pour éviter une boucle
+          localStorage.setItem('rt-art', JSON.stringify(articles));
+          localStorage.setItem('rt-fut', JSON.stringify(futurs));
+          localStorage.setItem('rt-trk', JSON.stringify(tracking));
+          localStorage.setItem('rt-saved-at', new Date().toISOString());
+          showToast('☁️ Synchronisé (' + articles.length + ' articles)');
+          renderDashboard(); renderStock(); renderVentes(); renderFuturs();
+          return;
+        }
       }
+    } catch(e) { console.warn('Pre-push check failed:', e); }
+    
+    // ✅ Pas de conflit, on peut push notre version
+    const success = await cloudBackup(true);
+    if (success) {
+      showToast('☁️ Paires synchronisées dans le cloud');
     }
-  }, 1000); // 1 sec après la dernière modif (quasi-instantané)
+  }, 1000);
 }
 
 
@@ -1564,7 +1598,7 @@ function _createPullIndicator(){
 async function _doRefresh(){
   if(_refreshing)return;
   _refreshing=true;
-  if(_pullInd){_pullInd.innerHTML='<span class="spin" style="border-color:#000;border-top-color:transparent"></span>';_pullInd.style.top='max(20px, env(safe-area-inset-top, 20px))';}
+  if(_pullInd){_pullInd.innerHTML='<span class="spin" style="border-color:#000;border-top-color:transparent"></span>';_pullInd.style.top='calc(env(safe-area-inset-top, 20px) + 30px)';}
   // ✅ SÉCURITÉ : Pull-to-refresh = SEULEMENT refresh local, ZÉRO sauvegarde cloud!
   // Sinon les données d'un téléphone écrasent celles de l'autre.
   // La sync automatique se fait via checkCloudOnStart() (au démarrage) + scheduleCloudBackup() (après modifs)

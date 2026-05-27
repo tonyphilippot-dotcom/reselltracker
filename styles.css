@@ -199,3 +199,16 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:4px 0}
 .marche-prix{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:var(--amber)}
 .marche-fourchette{font-size:12px;color:var(--text2);margin-top:2px}
 .marche-result{background:var(--card2);border-radius:10px;padding:12px;margin-top:10px}
+
+/* ✅ Fix: couvrir la safe-area-inset-bottom avec la couleur de la tabbar */
+html::after {
+  content: '';
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-bottom, 0);
+  background: var(--bg2);
+  z-index: 49;
+  pointer-events: none;
+}
