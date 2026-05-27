@@ -1,4 +1,3 @@
-
 // ── 📱 FIX iOS PWA : forcer la vraie hauteur de l'écran
 function _setRealHeight(){
   document.documentElement.style.setProperty('--app-h',window.innerHeight+'px');
@@ -202,31 +201,26 @@ async function deletePhotoFromR2(url){
 // Helper : vérifie si c'est une URL R2
 function isR2Url(s){return typeof s==='string'&&s.startsWith(R2_PUBLIC_URL);}
 
-// ── 🔄 Vérification cloud au démarrage (Option B : propose si plus récent)
+// ── 🔄 Vérification cloud au démarrage (ROBUSTE)
 async function checkCloudOnStart(){
   const cloudKey=localStorage.getItem('rt-cloud-key');
-  if(!cloudKey){
-    console.log('Cloud key non configurée');
-    return;
-  }
-  const localCount=articles.length;
-  const localTime=localStorage.getItem('rt-saved-at')?new Date(localStorage.getItem('rt-saved-at')).getTime():0;y({_action:'restore',_key:cloudKey})
-    });
+  if(!cloudKey) return;
+  try{
+    const resp=await fetch(CLOUD_URL,{method:'POST',body:JSON.stringify({_action:'restore',_key:cloudKey})});
     const r=await resp.json();
-    if(!r.backup||!r.backup.date)return; // Pas de backup cloud
+    if(!r.backup||!r.backup.date) return;
     const cloudTime=new Date(r.backup.date).getTime();
-    // Si cloud > local de plus de 30 secondes : restaurer automatiquement
+    const localTime=localStorage.getItem('rt-saved-at')?new Date(localStorage.getItem('rt-saved-at')).getTime():0;
     if(cloudTime > localTime + 30000){
       const d=r.backup.data;
-      if(d.articles)articles=await _articlesFromCloud(d.articles);
-      if(d.futurs)futurs=d.futurs;
-      if(d.tracking)tracking=d.tracking;
-      if(d.vendeurs)localStorage.setItem('rt-vendeurs',JSON.stringify(d.vendeurs));
-      if(d.pays)localStorage.setItem('rt-pay',JSON.stringify(d.pays));
+      if(d.articles) articles=await _articlesFromCloud(d.articles);
+      if(d.futurs) futurs=d.futurs;
+      if(d.tracking) tracking=d.tracking;
+      if(d.vendeurs) localStorage.setItem('rt-vendeurs',JSON.stringify(d.vendeurs));
+      if(d.pays) localStorage.setItem('rt-pay',JSON.stringify(d.pays));
       if(d.objectif!==undefined){objectif=d.objectif;localStorage.setItem('rt-obj',objectif);}
       save();
-      const cloudCount=articles.length;
-      showToast('☁️ Synchronisé ('+cloudCount+' articles)');
+      showToast('☁️ Synchronisé ('+articles.length+' articles)');
       renderDashboard();renderStock();renderVentes();renderFuturs();
     }
   }catch(e){console.warn('checkCloudOnStart failed:',e);}
@@ -902,7 +896,7 @@ function renderDashboard(){
   const mV=getFilteredVendus();
   const periodLabel=dashPeriod==='month'?'ce mois':dashPeriod==='year'?'cette année':'tout';
   let ben=0,ca=0,bT=0,bL=0;
-  mV.forEach(a=>{const r=calcMarge(a);if(r){ben+=r.net;ca+=a.pv;if(a.vinted=;save();showToast('✅ Compte Vinted changé');=='tony')bT+=r.net;else if(a.vinted=;save();showToast('✅ Compte Vinted changé');=='laetitia')bL+=r.net;}});
+  mV.forEach(a=>{const r=calcMarge(a);if(r){ben+=r.net;ca+=a.pv;if(a.vinted==='tony')bT+=r.net;else if(a.vinted==='laetitia')bL+=r.net;}});
   const immo=articles.filter(a=>['attente','stock','vente'].includes(a.statut)).reduce((s,a)=>s+(a.pa||0)+(a.port||0),0);
   // Bénéfice ALL TIME
   let benTotal=0;
@@ -947,7 +941,7 @@ function renderChart(){
   const mn=['Jan','F\u00e9v','Mar','Avr','Mai','Jun','Jul','Ao\u00fb','Sep','Oct','Nov','D\u00e9c'];
   if(chartMode==='m'||chartMode==='c'){
     const dT=[],dL=[];
-    for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');labels.push(mn[d.getMonth()]);let bt=0,bl=0;articles.filter(a=>a.statut==='vendu'&&a.dateVente&&a.dateVente.startsWith(k)).forEach(a=>{const r=calcMarge(a);if(!r)return;if(a.vinted=;save();showToast('✅ Compte Vinted changé');=='tony')bt+=r.net;else bl+=r.net;});dT.push(parseFloat(bt.toFixed(2)));dL.push(parseFloat(bl.toFixed(2)));}
+    for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');labels.push(mn[d.getMonth()]);let bt=0,bl=0;articles.filter(a=>a.statut==='vendu'&&a.dateVente&&a.dateVente.startsWith(k)).forEach(a=>{const r=calcMarge(a);if(!r)return;if(a.vinted==='tony')bt+=r.net;else bl+=r.net;});dT.push(parseFloat(bt.toFixed(2)));dL.push(parseFloat(bl.toFixed(2)));}
     if(chartMode==='c'){datasets=[{data:dT,backgroundColor:'rgba(77,159,255,0.7)',borderRadius:4,borderSkipped:false,label:'Tony'},{data:dL,backgroundColor:'rgba(255,107,220,0.7)',borderRadius:4,borderSkipped:false,label:'Laetitia'}];}
     else{const tot=dT.map((v,i)=>parseFloat((v+dL[i]).toFixed(2)));datasets=[{data:tot,backgroundColor:tot.map(v=>v>=0?'rgba(31,217,154,0.7)':'rgba(255,85,102,0.7)'),borderRadius:6,borderSkipped:false}];}
   }else{
@@ -985,7 +979,7 @@ function setFilter(f,el,vn){
 function renderStock(){
   const search=(document.getElementById('stockSearch').value||'').toLowerCase();
   let arts=[...articles];
-  const filters={actifs:a=>!['vendu','retour'].includes(a.statut),attente:a=>a.statut==='attente',stock:a=>a.statut==='stock',vente:a=>a.statut==='vente',vendu:a=>a.statut==='vendu',retour:a=>a.statut==='retour',Hacoo:a=>a.plateforme==='Hacoo',YepExpress:a=>a.plateforme==='YepExpress',tony:a=>a.vinted=;save();showToast('✅ Compte Vinted changé');=='tony',laetitia:a=>a.vinted=;save();showToast('✅ Compte Vinted changé');=='laetitia'};
+  const filters={actifs:a=>!['vendu','retour'].includes(a.statut),attente:a=>a.statut==='attente',stock:a=>a.statut==='stock',vente:a=>a.statut==='vente',vendu:a=>a.statut==='vendu',retour:a=>a.statut==='retour',Hacoo:a=>a.plateforme==='Hacoo',YepExpress:a=>a.plateforme==='YepExpress',tony:a=>a.vinted==='tony',laetitia:a=>a.vinted==='laetitia'};
   ['Chaussures','V\u00eatements','Sacs','Accessoires'].forEach(c=>{filters[c]=a=>a.categorie===c;});
   if(filters[stockFilter])arts=arts.filter(filters[stockFilter]);
   if(search)arts=arts.filter(a=>[a.nom,a.marque,a.modele,a.taille,a.couleur,a.notes].join(' ').toLowerCase().includes(search));
@@ -1007,7 +1001,7 @@ function renderStock(){
 function switchVentes(t){ventesTab=t;document.querySelectorAll('#ventesTab .ts').forEach((el,i)=>el.classList.toggle('on',['env','vnd','tony','laetitia'][i]===t));renderVentes();}
 function renderVentes(){
   const list=document.getElementById('ventesList');
-  const maps={env:a=>['stock','vente'].includes(a.statut),vnd:a=>a.statut==='vendu',tony:a=>a.vinted=;save();showToast('✅ Compte Vinted changé');=='tony',laetitia:a=>a.vinted=;save();showToast('✅ Compte Vinted changé');=='laetitia'};
+  const maps={env:a=>['stock','vente'].includes(a.statut),vnd:a=>a.statut==='vendu',tony:a=>a.vinted==='tony',laetitia:a=>a.vinted==='laetitia'};
   let arts=articles.filter(maps[ventesTab]||maps.env).sort((a,b)=>(b.dateVente||b.date||'').localeCompare(a.dateVente||a.date||''));
   if(!arts.length){list.innerHTML='<div class="empty"><div class="eicon">&#128717;</div>Rien ici</div>';return;}
   list.innerHTML=arts.map(a=>{const r=calcMarge(a);if((ventesTab==='vnd'||ventesTab==='tony'||ventesTab==='laetitia')&&r)return'<div class="card2" onclick="openDetail(\''+a.id+'\')"><div style="display:flex;justify-content:space-between"><div><div style="font-size:13px;font-weight:500">'+a.nom+'</div><div style="font-size:11px;color:var(--text2);margin-top:2px">'+([a.taille,a.couleur].filter(Boolean).join(' ')||a.plateforme)+' '+fmtDate(a.dateVente)+'</div>'+vintedTag(a.vinted)+'</div><div style="text-align:right"><div class="marge '+(r.net>=0?'mp':'mn')+'">'+fmt(r.net)+'</div><div style="font-size:10px;color:var(--text2)">ROI '+r.roi.toFixed(1)+'%</div></div></div><div class="cbox" style="margin-top:8px"><div class="crow"><span>PV</span><span>'+fmtP(a.pv)+'</span></div><div class="crow"><span>Frais Vinted</span><span>-'+fmtP(r.fraisV)+'</span></div><div class="crow tot"><span>Net</span><span style="color:'+(r.net>=0?'var(--green)':'var(--red)')+'">'+fmt(r.net)+'</span></div></div></div>';return'<div class="irow" onclick="openDetail(\''+a.id+'\')"><div class="ithumb">'+thumb(a)+'</div><div class="iinfo"><div class="iname">'+a.nom+'</div><div class="imeta">'+([a.taille,a.couleur].filter(Boolean).join(' ')||a.plateforme)+'</div></div><div class="ival"><div style="font-size:12px;color:var(--text2)">PA '+fmtP(a.pa||0)+'</div><div class="bdg '+a.statut+'">'+statLabel(a.statut)+'</div></div></div>';}).join('');
@@ -1265,7 +1259,7 @@ function shareArticleImage(){
     ctx.fillStyle='#000';ctx.font='bold 13px sans-serif';ctx.fillText(statLabel(a.statut),55,361);
     // Footer
     ctx.fillStyle='#8888aa';ctx.font='11px sans-serif';ctx.fillText('ResellTracker — '+fmtDate(a.date),30,680);
-    ctx.fillText(a.plateforme+(a.vinted?' · '+(a.vinted=;save();showToast('✅ Compte Vinted changé');=='tony'?'Tony 💙':'Laetitia 💗'):''),400,680);
+    ctx.fillText(a.plateforme+(a.vinted?' · '+(a.vinted==='tony'?'Tony 💙':'Laetitia 💗'):''),400,680);
   };
   if(a.photos&&a.photos[0]&&getPhotoURL(a.photos[0])){
     const img=new Image();
@@ -1505,10 +1499,10 @@ async function rechercheMarche(){
 loadSharedBlacklist();
 // ── MIGRATION anciens noms Vinted
 articles.forEach(a=>{
-  if(a.vinted=;save();showToast('✅ Compte Vinted changé');=='vinted1')a.vinted=;save();showToast('✅ Compte Vinted changé');'tony';
-  if(a.vinted=;save();showToast('✅ Compte Vinted changé');=='vinted2')a.vinted=;save();showToast('✅ Compte Vinted changé');'laetitia';
-  if(a.vinted=;save();showToast('✅ Compte Vinted changé');=='Vinted 1')a.vinted=;save();showToast('✅ Compte Vinted changé');'tony';
-  if(a.vinted=;save();showToast('✅ Compte Vinted changé');=='Vinted 2')a.vinted=;save();showToast('✅ Compte Vinted changé');'laetitia';
+  if(a.vinted==='vinted1')a.vinted='tony';
+  if(a.vinted==='vinted2')a.vinted='laetitia';
+  if(a.vinted==='Vinted 1')a.vinted='tony';
+  if(a.vinted==='Vinted 2')a.vinted='laetitia';
 });
 save();
 
