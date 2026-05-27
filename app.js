@@ -1547,14 +1547,14 @@ function _createPullIndicator(){
   if(_pullInd)return;
   _pullInd=document.createElement('div');
   _pullInd.id='pullRefresh';
-  _pullInd.style.cssText='position:fixed;top:-60px;left:50%;transform:translateX(-50%);width:48px;height:48px;background:#1fd99a;color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;z-index:99999;transition:top .25s cubic-bezier(.34,1.56,.64,1);box-shadow:0 4px 20px rgba(31,217,154,0.4);pointer-events:none';
+  _pullInd.style.cssText='position:fixed;top:calc(-60px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);width:48px;height:48px;background:#1fd99a;color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;z-index:99999;transition:top .25s cubic-bezier(.34,1.56,.64,1);box-shadow:0 4px 20px rgba(31,217,154,0.4);pointer-events:none';
   _pullInd.innerHTML='🔄';
   document.body.appendChild(_pullInd);
 }
 async function _doRefresh(){
   if(_refreshing)return;
   _refreshing=true;
-  if(_pullInd){_pullInd.innerHTML='<span class="spin" style="border-color:#000;border-top-color:transparent"></span>';_pullInd.style.top='20px';}
+  if(_pullInd){_pullInd.innerHTML='<span class="spin" style="border-color:#000;border-top-color:transparent"></span>';_pullInd.style.top='max(20px, env(safe-area-inset-top, 20px))';}
   // ✅ SÉCURITÉ : Pull-to-refresh = SEULEMENT refresh local, ZÉRO sauvegarde cloud!
   // Sinon les données d'un téléphone écrasent celles de l'autre.
   // La sync automatique se fait via checkCloudOnStart() (au démarrage) + scheduleCloudBackup() (après modifs)
@@ -1569,7 +1569,7 @@ async function _doRefresh(){
   // Animation de fin
   setTimeout(()=>{
     if(_pullInd){
-      _pullInd.style.top='-60px';
+      _pullInd.style.top='calc(-60px + env(safe-area-inset-top, 0px))';
       setTimeout(()=>{if(_pullInd)_pullInd.innerHTML='🔄';},300);
     }
     _refreshing=false;
@@ -1601,7 +1601,7 @@ document.querySelector('.content').addEventListener('touchend',()=>{
   if(dist>90){
     _doRefresh();
   }else if(_pullInd){
-    _pullInd.style.top='-60px';
+    _pullInd.style.top='calc(-60px + env(safe-area-inset-top, 0px))';
     _pullInd.style.transform='translateX(-50%) rotate(0deg)';
   }
   _pullStartY=0;_pullCurY=0;
