@@ -403,7 +403,7 @@ function scheduleCloudBackup() {
         showToast('☁️ Paires synchronisées dans le cloud');
       }
     }
-  }, 3000); // 3 sec après la dernière modif (au lieu de 30)
+  }, 1000); // 1 sec après la dernière modif (quasi-instantané)
 }
 
 
