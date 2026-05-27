@@ -390,7 +390,7 @@ async function resetAll(){
 
 // ── 🔄 MIGRATION : upload toutes les photos locales (IDB + data URLs) vers R2
 
-// Auto-backup cloud silencieux toutes les 5 min si modification
+// Auto-backup cloud silencieux après modification (3 sec au lieu de 30)
 let _cloudPending = false;
 function scheduleCloudBackup() {
   if (_cloudPending) return;
@@ -403,7 +403,7 @@ function scheduleCloudBackup() {
         showToast('☁️ Paires synchronisées dans le cloud');
       }
     }
-  }, 30000); // 30 sec après la dernière modif
+  }, 3000); // 3 sec après la dernière modif (au lieu de 30)
 }
 
 
