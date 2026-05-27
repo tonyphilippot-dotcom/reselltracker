@@ -1598,7 +1598,7 @@ function _createPullIndicator(){
 async function _doRefresh(){
   if(_refreshing)return;
   _refreshing=true;
-  if(_pullInd){_pullInd.innerHTML='<span class="spin" style="border-color:#000;border-top-color:transparent"></span>';_pullInd.style.top='calc(env(safe-area-inset-top, 20px) + 30px)';}
+  if(_pullInd){_pullInd.innerHTML='<span class="spin" style="border-color:#000;border-top-color:transparent"></span>';_pullInd.style.top='calc(env(safe-area-inset-top, 20px) + 70px)';}
   // ✅ SÉCURITÉ : Pull-to-refresh = SEULEMENT refresh local, ZÉRO sauvegarde cloud!
   // Sinon les données d'un téléphone écrasent celles de l'autre.
   // La sync automatique se fait via checkCloudOnStart() (au démarrage) + scheduleCloudBackup() (après modifs)
