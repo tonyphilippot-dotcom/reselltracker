@@ -1702,7 +1702,21 @@ renderDashboard();
 preloadPhotos().then(()=>{
   renderDashboard();
   if(document.querySelector('#screen-stock.on'))renderStock();
-  // 🔄 Vérifier le cloud après 2 secondes (laisse le temps de charger)
-  setTimeout(()=>checkCloudOnStart(),2000);
 }).catch(e=>console.warn('Preload photos failed:',e));
+
+// 🔄 Cloud sync AUTOMATIQUE - séparé du preload pour s'exécuter TOUJOURS
+setTimeout(()=>checkCloudOnStart(),2000);
+
+// 🔄 Re-vérifier le cloud quand l'app revient en avant (changement d'onglet/appli)
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden){
+    setTimeout(()=>checkCloudOnStart(),500);
+  }
+});
+
+// 🔄 Re-vérifier au focus de la fenêtre (Android PWA)
+window.addEventListener('focus',()=>{
+  setTimeout(()=>checkCloudOnStart(),500);
+});
+
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
