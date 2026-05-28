@@ -848,7 +848,7 @@ function marquerVendu(){
   if(art.statut==='vendu'){alert('Cette paire est déjà vendue !');return;}
   _selling=true;
   art.pv=pv;art.portVente=0;
-  art.vinted=document.getElementById('dVinted').value;art.statut='vendu';art.dateVente=document.getElementById('dDateVente').value||new Date().toISOString().split('T')[0];
+  art.vinted=document.getElementById('dVinted').value;art.statut='vendu';art.dateVente=document.getElementById('dDateVente').value||art.dateVente||new Date().toISOString().split('T')[0];
   const r=calcMarge(art);
   if(r){const pays=JSON.parse(localStorage.getItem('rt-pay')||'[]');pays.push({id:Date.now().toString(),artId:art.id,nom:art.nom,vinted:art.vinted,montant:art.pv,net:r.net,date:art.dateVente,recu:false});localStorage.setItem('rt-pay',JSON.stringify(pays));}
   save();
@@ -1264,6 +1264,21 @@ function openDetail(id){
       :'';
   }
   openM('mDetail');
+  // 🗑️ Cacher le champ "Date de vente" en double (section Marquer vendu)
+  setTimeout(()=>{
+    const dv=document.getElementById('dDateVente');
+    if(dv){
+      dv.style.display='none';
+      // Cacher tout label "DATE DE VENTE" frère ou proche
+      const modal=document.querySelector('#mDetail .modal');
+      if(modal){
+        modal.querySelectorAll('*').forEach(el=>{
+          const t=(el.childNodes.length===1&&el.childNodes[0].nodeType===3)?el.textContent.trim():'';
+          if(/^date de vente$/i.test(t))el.style.display='none';
+        });
+      }
+    }
+  },50);
   // 🔧 Anti-débordement horizontal : corriger tout élément trop large dans la fiche
   setTimeout(()=>{
     const modal=document.querySelector('#mDetail .modal');
