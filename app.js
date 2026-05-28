@@ -4,10 +4,16 @@ function _setRealHeight(){
   document.documentElement.style.setProperty('--app-h',window.innerHeight+'px');
 }
 _setRealHeight();
+// Re-mesurer plusieurs fois car iOS PWA donne une mauvaise valeur au tout début
+setTimeout(_setRealHeight,100);
+setTimeout(_setRealHeight,300);
+setTimeout(_setRealHeight,600);
+setTimeout(_setRealHeight,1000);
 window.addEventListener('resize',_setRealHeight);
-window.addEventListener('orientationchange',()=>setTimeout(_setRealHeight,100));
-// Re-check après chargement complet
-window.addEventListener('load',()=>setTimeout(_setRealHeight,500));
+window.addEventListener('orientationchange',()=>setTimeout(_setRealHeight,200));
+window.addEventListener('load',()=>{_setRealHeight();setTimeout(_setRealHeight,300);});
+window.addEventListener('pageshow',_setRealHeight);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)_setRealHeight();});
 
 // ── DATA
 // 🛡️ Chargement avec fallback sur backup si principal vide
