@@ -1159,6 +1159,16 @@ function saveField(el,field,isNum=false){
   save();
 }
 
+// ⭐ Bouton étoile : marquer/démarquer comme "Top à racheter"
+function toggleBest(){
+  const art=articles.find(a=>a.id===currentId);if(!art)return;
+  art.best=!art.best;
+  save();
+  document.getElementById('dNom').textContent=art.nom+(art.best?' ⭐':'');
+  renderStock();renderDashboard();
+  showToast(art.best?'⭐ Ajouté aux tops à racheter':'Retiré des tops');
+}
+
 // ✏️ Modifier le nom d'une paire (clic sur le titre dans la fiche)
 function editArticleName(id){
   const art=articles.find(a=>a.id===id);if(!art)return;
@@ -1183,6 +1193,8 @@ function openDetail(id){
   dNomEl.style.cursor='pointer';
   dNomEl.title='Appuie pour modifier le nom';
   dNomEl.onclick=function(){editArticleName(a.id);};
+  // 🗑️ Cacher le bouton "Partager" (inutile)
+  document.querySelectorAll('[onclick*="shareArticleImage"]').forEach(b=>b.style.display='none');
   const j=ageJours(a.date);
   document.getElementById('dMeta').innerHTML=a.plateforme+' '+fmtDate(a.date)+' '+vintedTag(a.vinted);
   document.getElementById('dScore').innerHTML=scoreHtml(scoreRentabilite(a));
@@ -1355,12 +1367,21 @@ function shareArticleImage(){
 }
 function shareCanvas(canvas,nom){
   canvas.toBlob(blob=>{
+    if(!blob){showToast('❌ Erreur génération image');return;}
     const file=new File([blob],'reselltracker-'+nom.replace(/\s+/g,'-')+'.png',{type:'image/png'});
     if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-      navigator.share({files:[file],title:nom});
+      navigator.share({files:[file],title:nom}).catch(e=>{
+        // L'utilisateur a annulé OU erreur : fallback téléchargement
+        if(e.name!=='AbortError'){
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement('a');a.href=url;a.download='reselltracker-'+nom+'.png';a.click();
+          showToast('📥 Image téléchargée');
+        }
+      });
     }else{
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');a.href=url;a.download='reselltracker-'+nom+'.png';a.click();
+      showToast('📥 Image téléchargée');
     }
   },'image/png');
 }
