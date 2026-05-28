@@ -1176,7 +1176,7 @@ function openDetail(id){
   currentId=id;const a=articles.find(x=>x.id===id);if(!a)return;
   const photos=a.photos&&a.photos.length?a.photos:[];
   document.getElementById('dmainPhoto').innerHTML=coverPhoto(a)?'<img src="'+getPhotoURL(coverPhoto(a))+'">':`<span style="font-size:50px">${catEmoji(a.categorie)}</span>`;
-  document.getElementById('dPhotos').innerHTML=photos.length>1?photos.map((p,i)=>{const url=getPhotoURL(p);return url?'<img src="'+url+'" class="'+(i===0?'main':'')+'" onclick="setMainPhoto(this,\''+url.replace(/'/g,"\\'")+'\')">':'';}).join(''):'';
+  document.getElementById('dPhotos').innerHTML=photos.length?photos.map((p,i)=>{const url=getPhotoURL(p);const coverIdx=(a.coverIndex!==undefined)?a.coverIndex:(photos.length>1?1:0);return url?'<img src="'+url+'" class="'+(i===coverIdx?'main':'')+'" onclick="setMainPhotoByIndex('+i+',this)">':'';}).join(''):'';
   document.getElementById('dNom').textContent=a.nom+(a.best?' ':'');
   // ✏️ Rendre le nom éditable au clic
   const dNomEl=document.getElementById('dNom');
@@ -1239,12 +1239,19 @@ function setMainPhoto(el,src){
   document.getElementById('dmainPhoto').innerHTML='<img src="'+src+'">';
   document.querySelectorAll('#dPhotos img').forEach(i=>i.classList.remove('main'));
   el.classList.add('main');
-  // 📌 Mémoriser ce choix comme photo de couverture
+}
+// 📌 Définir la photo principale par son index (fiable + mémorisé)
+function setMainPhotoByIndex(idx,el){
   const art=articles.find(a=>a.id===currentId);
-  if(art&&art.photos){
-    const idx=Array.from(document.querySelectorAll('#dPhotos img')).indexOf(el);
-    if(idx>=0){art.coverIndex=idx;save();renderStock();renderVentes();showToast('📌 Photo principale définie');}
-  }
+  if(!art||!art.photos||!art.photos[idx])return;
+  art.coverIndex=idx;
+  save();
+  const url=getPhotoURL(art.photos[idx]);
+  document.getElementById('dmainPhoto').innerHTML='<img src="'+url+'">';
+  document.querySelectorAll('#dPhotos img').forEach(i=>i.classList.remove('main'));
+  if(el)el.classList.add('main');
+  renderStock();renderVentes();renderDashboard();
+  showToast('📌 Photo principale définie');
 }
 function updateSim(){const slider=document.getElementById('simSlider');if(!slider)return;const art=articles.find(a=>a.id===currentId);if(!art)return;const pv=parseInt(slider.value);const valEl=document.getElementById('simVal');if(valEl)valEl.textContent=pv+' \u20ac';const r=calcEst(art.pa||0,art.port||0,pv);if(!r)return;const resEl=document.getElementById('simResult');if(resEl)resEl.innerHTML='<div class="cbox"><div class="crow"><span>Cout</span><span>-'+fmtP(r.cout)+'</span></div><div class="crow tot"><span>Marge nette</span><span style="color:'+(r.net>=0?'var(--green)':'var(--red)')+'">'+fmt(r.net)+'</span></div><div class="crow"><span>ROI</span><span>'+r.roi.toFixed(1)+'%</span></div></div>';}
 function updateNego(){const slider=document.getElementById('negoSlider');if(!slider)return;const art=articles.find(a=>a.id===currentId);if(!art)return;const pv=parseInt(slider.value);const pm=prixMin(art.pa||0,art.port||0);const valEl=document.getElementById('negoVal');if(valEl)valEl.textContent=pv+' \u20ac';const r=calcEst(art.pa||0,art.port||0,pv);const ok=pv>=pm;const resEl=document.getElementById('negoResult');if(resEl)resEl.innerHTML='<div class="crow"><span>Marge si accepte</span><span style="color:'+(ok?'var(--green)':'var(--red)')+'">'+(r?fmt(r.net):'--')+'</span></div><div style="margin-top:6px;padding:8px;border-radius:8px;background:'+(ok?'var(--green-bg)':'var(--red-bg)')+';font-size:12px;font-weight:600;color:'+(ok?'var(--green)':'var(--red)')+'">'+(ok?'OK Accepter - tu restes gagnant':'Non Refuser - en dessous du minimum')+'</div>';}
