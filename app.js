@@ -1246,6 +1246,19 @@ function openDetail(id){
       :'';
   }
   openM('mDetail');
+  // 🔧 Anti-débordement horizontal : corriger tout élément trop large dans la fiche
+  setTimeout(()=>{
+    const modal=document.querySelector('#mDetail .modal');
+    if(!modal)return;
+    const maxW=modal.clientWidth;
+    modal.querySelectorAll('*').forEach(el=>{
+      if(el.scrollWidth>maxW+2 && !el.classList.contains('dphotos') && el.id!=='dPhotos'){
+        el.style.maxWidth='100%';
+        el.style.overflowX='hidden';
+        el.style.overflowWrap='break-word';
+      }
+    });
+  },120);
 }
 function setMainPhoto(el,src){
   document.getElementById('dmainPhoto').innerHTML='<img src="'+src+'">';
