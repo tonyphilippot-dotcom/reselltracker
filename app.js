@@ -1031,6 +1031,8 @@ function setFilter(f,el,vn){
   else if(vn==='futurFilter')renderFuturs();
   else if(vn==='payTab')renderPaiements();
 }
+let stockSort='marge';
+function setStockSort(v){stockSort=v;renderStock();}
 function renderStock(){
   const search=(document.getElementById('stockSearch').value||'').toLowerCase();
   let arts=[...articles];
@@ -1038,18 +1040,42 @@ function renderStock(){
   ['Chaussures','V\u00eatements','Sacs','Accessoires'].forEach(c=>{filters[c]=a=>a.categorie===c;});
   if(filters[stockFilter])arts=arts.filter(filters[stockFilter]);
   if(search)arts=arts.filter(a=>[a.nom,a.marque,a.modele,a.taille,a.couleur,a.notes].join(' ').toLowerCase().includes(search));
-  // Tri par marge décroissante
-  arts.sort((a,b)=>{
-    const ra=a.pvcible&&a.pa?(a.pvcible-(a.pa+a.port)):null;
-    const rb=b.pvcible&&b.pa?(b.pvcible-(b.pa+b.port)):null;
-    if(ra===null&&rb===null)return 0;
-    if(ra===null)return 1;
-    if(rb===null)return -1;
-    return rb-ra;
-  });
-  const cats={};articles.filter(a=>!['vendu','retour'].includes(a.statut)).forEach(a=>{const c=a.categorie||'Autre';if(!cats[c])cats[c]={n:0,pa:0};cats[c].n++;cats[c].pa+=(a.pa||0)+(a.port||0);});
-  document.getElementById('catStats').innerHTML=Object.keys(cats).length?'<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none">'+Object.entries(cats).map(([c,v])=>'<div style="flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:11px"><div style="color:var(--text2)">'+catEmoji(c)+' '+c+'</div><div style="font-weight:600;font-family:\'DM Mono\',monospace;margin-top:2px">'+fmtP(v.pa/v.n)+' moy</div></div>').join('')+'</div>':'';
-  document.getElementById('stockGrid').innerHTML=arts.map(a=>{const j=ageJours(a.date);const s=scoreRentabilite(a);const pvBas=a.pvcible&&a.pvcible<prixMin(a.pa||0,a.port||0);const ageC=!['vendu','retour'].includes(a.statut)?ageColor(j):'transparent';return'<div class="scard" data-id="'+a.id+'" onclick="openDetail(\''+a.id+'\')"><div class="age-bar" style="background:'+ageC+'"></div><div class="sphoto">'+thumb(a)+(s?'<div class="score-dot" style="color:'+(s>=7?'var(--green)':s>=4?'var(--amber)':'var(--red)')+'">'+s+'/10</div>':'')+(a.best?'<div class="best-dot">&#11088;</div>':'')+'</div><div class="sbody"><div class="sname">'+a.nom+'</div><div class="sdet">'+([a.taille,a.couleur].filter(Boolean)[0]||a.plateforme)+'</div><div class="spa">'+fmtP(a.pa||0)+(pvBas?' &#9888;':'')+'</div>'+(a.pvcible?'<div class="smg">&#10145;'+fmtP(a.pvcible)+'</div>':'')+'<span class="bdg '+a.statut+'">'+statLabel(a.statut)+'</span>'+vintedTag(a.vinted)+'</div></div>';}).join('')+'<div class="scard sadd" onclick="openAddModal()"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg><span>Ajouter</span></div>';
+  // 🔍 TRI selon le choix utilisateur
+  const margeOf=a=>(a.pvcible&&a.pa)?(a.pvcible-(a.pa+a.port)):null;
+  if(stockSort==='marge'){
+    arts.sort((a,b)=>{const ra=margeOf(a),rb=margeOf(b);if(ra===null&&rb===null)return 0;if(ra===null)return 1;if(rb===null)return -1;return rb-ra;});
+  }else if(stockSort==='ancien'){
+    arts.sort((a,b)=>ageStock(b)-ageStock(a));
+  }else if(stockSort==='recent'){
+    arts.sort((a,b)=>ageStock(a)-ageStock(b));
+  }else if(stockSort==='prix'){
+    arts.sort((a,b)=>(b.pa||0)-(a.pa||0));
+  }else if(stockSort==='nom'){
+    arts.sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
+  }
+  // 🔍 Barre de tri
+  const sortBar='<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px"><span style="font-size:11px;color:var(--text2)">Trier :</span>'
+    +'<select onchange="setStockSort(this.value)" style="flex:1;font-size:12px;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:6px 8px;color:var(--text);font-family:inherit">'
+    +['marge:🎯 Meilleure marge','ancien:😴 Plus ancien','recent:🆕 Plus récent','prix:💸 Prix d\'achat','nom:🔤 Nom (A-Z)']
+      .map(o=>{const[v,l]=o.split(':');return '<option value="'+v+'"'+(stockSort===v?' selected':'')+'>'+l+'</option>';}).join('')
+    +'</select></div>';
+  const cats={};
+  document.getElementById('catStats').innerHTML=sortBar;
+  document.getElementById('stockGrid').innerHTML=arts.map(a=>{
+    const j=ageStock(a);
+    const s=scoreRentabilite(a);
+    const pvBas=a.pvcible&&a.pvcible<prixMin(a.pa||0,a.port||0);
+    const ageC=!['vendu','retour'].includes(a.statut)?ageColor(j):'transparent';
+    // 😴 Stock dormant : en stock/vente depuis +30j
+    const dormant=['stock','vente'].includes(a.statut)&&j>30;
+    // ⏱️ Délai de vente pour les vendus
+    let delaiVente='';
+    if(a.statut==='vendu'&&a.dateVente){
+      const base=a.dateRecu||a.date;
+      if(base){const d=Math.max(0,Math.floor((new Date(a.dateVente+'T00:00:00')-new Date(base+'T00:00:00'))/864e5));delaiVente='<div class="scm" style="color:var(--green)">⏱️ vendu en '+d+'j</div>';}
+    }
+    return '<div class="scard" data-id="'+a.id+'" onclick="openDetail(\''+a.id+'\')"><div class="age-bar" style="background:'+ageC+'"></div><div class="sphoto">'+thumb(a)+(s?'<div class="score-dot" style="color:'+(s>=7?'var(--green)':s>=4?'var(--amber)':'var(--red)')+'">'+s+'/10</div>':'')+(a.best?'<div class="best-dot">&#11088;</div>':'')+(dormant?'<div style="position:absolute;top:3px;left:3px;font-size:9px;font-weight:600;padding:2px 6px;border-radius:8px;background:rgba(255,85,102,0.9);color:#fff">😴 '+j+'j</div>':'')+'</div><div class="sbody"><div class="sname">'+a.nom+'</div><div class="sdet">'+([a.taille,a.couleur].filter(Boolean)[0]||a.plateforme)+'</div><div class="spa">'+fmtP(a.pa||0)+(pvBas?' &#9888;':'')+'</div>'+(a.pvcible?'<div class="smg">&#10145;'+fmtP(a.pvcible)+'</div>':'')+delaiVente+'<span class="bdg '+a.statut+'">'+statLabel(a.statut)+'</span>'+vintedTag(a.vinted)+'</div></div>';
+  }).join('')+'<div class="scard sadd" onclick="openAddModal()"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg><span>Ajouter</span></div>';
 }
 
 // ── VENTES
@@ -1191,6 +1217,24 @@ function saveField(el,field,isNum=false){
   save();
 }
 
+// 📋 Dupliquer une paire (pour les paires identiques)
+function duplicateArticle(){
+  const art=articles.find(a=>a.id===currentId);if(!art)return;
+  const copie=JSON.parse(JSON.stringify(art));
+  copie.id=Date.now().toString();
+  copie.statut='stock';
+  copie.pv=null;copie.portVente=null;copie.dateVente=null;copie.dateMiseEnVente='';copie.retour=false;
+  copie.date=new Date().toISOString().split('T')[0];
+  copie.dateRecu='';
+  copie.best=false;
+  articles.push(copie);
+  save();
+  closeM('mDetail');
+  renderStock();renderDashboard();
+  showToast('📋 Paire dupliquée');
+  setTimeout(()=>openDetail(copie.id),200);
+}
+
 // ⭐ Bouton étoile : marquer/démarquer comme "Top à racheter"
 function toggleBest(){
   const art=articles.find(a=>a.id===currentId);if(!art)return;
@@ -1235,7 +1279,8 @@ function openDetail(id){
   const cout=(a.pa||0)+(a.port||0);
   const dGridEl=document.getElementById('dGrid');
   dGridEl.style.display='block';
-  dGridEl.innerHTML=buildDGrid(a,cout);
+  dGridEl.innerHTML=buildDGrid(a,cout)
+    +'<button onclick="duplicateArticle()" style="width:100%;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:11px;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;margin-top:6px;cursor:pointer">📋 Dupliquer cette paire</button>';
   // Alerte blacklist dans detail
   if(a.vendeur && estBlackliste(a.vendeur)){
     document.getElementById('dPvBasAlert').innerHTML+='<div class="pvbas-banner" style="background:var(--red-bg);color:var(--red)">&#128683; Vendeur blackliste : '+a.vendeur+'</div>';
