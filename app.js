@@ -9,17 +9,6 @@ window.addEventListener('orientationchange',()=>setTimeout(_setRealHeight,100));
 // Re-check après chargement complet
 window.addEventListener('load',()=>setTimeout(_setRealHeight,500));
 
-// ── 📱 FIX iOS : couvrir la safe-area-inset-bottom avec la couleur de la tabbar
-function _addSafeAreaCover(){
-  if(document.getElementById('safeAreaBottomCover'))return;
-  const cover=document.createElement('div');
-  cover.id='safeAreaBottomCover';
-  cover.style.cssText='position:fixed;bottom:0;left:0;right:0;height:60px;background:#13131f;z-index:45;pointer-events:none';
-  document.body.appendChild(cover);
-}
-window.addEventListener('DOMContentLoaded',_addSafeAreaCover);
-window.addEventListener('load',_addSafeAreaCover);
-
 // ── DATA
 // 🛡️ Chargement avec fallback sur backup si principal vide
 function _loadWithFallback(key){

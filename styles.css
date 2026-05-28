@@ -1,7 +1,7 @@
 :root{--bg:#0a0a18;--bg2:#13131f;--card:#1a1a2e;--card2:#22223a;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#f0f0f8;--text2:#8888aa;--green:#1fd99a;--green-bg:rgba(31,217,154,0.12);--red:#ff5566;--red-bg:rgba(255,85,102,0.12);--amber:#ffb547;--amber-bg:rgba(255,181,71,0.12);--blue:#4d9fff;--blue-bg:rgba(77,159,255,0.12);--purple:#a78bfa;--purple-bg:rgba(167,139,250,0.12);--accent:#1fd99a;--sb:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overflow:hidden;margin:0;padding:0;position:fixed;width:100%;left:0;right:0;top:0;bottom:0}
-#app{height:100%;display:flex;flex-direction:column}
+html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overflow:hidden;margin:0;padding:0;position:fixed;top:0;left:0;right:0;bottom:0}
+#app{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column}
 .hdr{background:var(--bg);padding:calc(env(safe-area-inset-top,40px) + 12px) 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
 .hdr-row{display:flex;justify-content:space-between;align-items:center}
 .hdr h1{font-size:21px;font-weight:600;letter-spacing:-.4px}.hdr h1 span{color:var(--accent)}
@@ -199,16 +199,3 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:4px 0}
 .marche-prix{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:var(--amber)}
 .marche-fourchette{font-size:12px;color:var(--text2);margin-top:2px}
 .marche-result{background:var(--card2);border-radius:10px;padding:12px;margin-top:10px}
-
-/* ✅ Fix: couvrir la safe-area-inset-bottom avec la couleur de la tabbar */
-html::after {
-  content: '';
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: env(safe-area-inset-bottom, 0);
-  background: var(--bg2);
-  z-index: 49;
-  pointer-events: none;
-}
