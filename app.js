@@ -608,7 +608,7 @@ async function importUniversalFromFile(file){
         max_tokens:700,
         messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
-          {type:'text',text:'Analyse cette image. Elle peut être : (1) une commande Hacoo ou YepExpress, (2) une étiquette de chaussure/vêtement, (3) une photo de produit, (4) un code-barres. Extrait TOUT ce que tu vois. Reponds UNIQUEMENT en JSON valide sans backticks: {"nom":"nom complet du produit","marque":"marque ex New Balance Nike Adidas ou vide","modele":"modele ex 9060 Air Force 1 ou vide","taille":"taille EU ex 38 ou vide","tailleCm":"taille en cm ex 24.5 ou vide - cherche la ligne CM","couleur":"couleur principale ex Blanc Noir Gris ou vide","pa":"prix paye en nombre decimal ex 42.74 ou 0","port":"frais port en nombre decimal ou 0","tracking":"numero suivi si visible sinon vide","plateforme":"Hacoo ou YepExpress si visible sinon Hacoo","ean":"code barres EAN si lisible sinon vide"}'}
+          {type:'text',text:'Analyse cette image. Elle peut être : (1) une commande Hacoo ou YepExpress, (2) une étiquette de chaussure/vêtement, (3) une photo de produit, (4) un code-barres. Extrait TOUT ce que tu vois. Pour le NOM, donne le nom commercial complet et lisible AVEC la couleur (ex: "New Balance 9060 Blanche", "Nike Air Max Dawn Beige"). Pour le MODELE, donne UNIQUEMENT la référence/code produit (ex: "9060 NRJ", "DM8261-001", "U9060NRJ"). Reponds UNIQUEMENT en JSON valide sans backticks: {"nom":"nom commercial complet avec couleur","marque":"marque ex New Balance Nike Adidas ou vide","modele":"reference/code produit uniquement ex 9060NRJ DM8261-001 ou vide","taille":"taille EU ex 38 ou vide","tailleCm":"taille en cm ex 24.5 ou vide - cherche la ligne CM","couleur":"couleur principale ex Blanc Noir Gris ou vide","pa":"prix paye en nombre decimal ex 42.74 ou 0","port":"frais port en nombre decimal ou 0","tracking":"numero suivi si visible sinon vide","plateforme":"Hacoo ou YepExpress si visible sinon Hacoo","ean":"code barres EAN si lisible sinon vide"}'}
         ]}]
       })
     });
@@ -907,7 +907,15 @@ function fmt(v){return(v>=0?'+':'')+v.toFixed(2)+' \u20ac';}
 function fmtP(v){return(v||0).toFixed(2)+' \u20ac';}
 function fmtDate(d){if(!d)return'\u2014';return new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
 function catEmoji(c){return{Chaussures:'\uD83D\uDC5F',V\u00eatements:'\uD83D\uDC57',Sacs:'\uD83D\uDC5C',Accessoires:'\u2728',Autre:'\uD83D\uDCE6'}[c]||'\uD83D\uDCE6';}
-function thumb(art){if(art.photos&&art.photos.length){const url=getPhotoURL(art.photos[0]);if(url)return'<img src="'+url+'">';}return catEmoji(art.categorie);}
+// ── 📸 Photo de couverture : la 2ème photo (chaussure) si elle existe, sinon la 1ère (étiquette)
+function coverPhoto(art){
+  if(!art.photos||!art.photos.length)return null;
+  // Si l'utilisateur a défini une photo principale manuellement, on la respecte
+  if(art.coverIndex!==undefined&&art.photos[art.coverIndex])return art.photos[art.coverIndex];
+  // Sinon : 2ème photo (1ère chaussure) si dispo, sinon la 1ère
+  return art.photos.length>1?art.photos[1]:art.photos[0];
+}
+function thumb(art){const ph=coverPhoto(art);if(ph){const url=getPhotoURL(ph);if(url)return'<img src="'+url+'">';}return catEmoji(art.categorie);}
 function statLabel(s){return{attente:'En attente',stock:'En stock',vente:'En vente',vendu:'Vendu',retour:'Retour'}[s]||s;}
 function vintedTag(v){if(!v)return'';return v==='tony'?'<span class="tag-tony">Tony</span>':'<span class="tag-laetitia">Laetitia</span>';}
 function scoreHtml(s){if(!s)return'';const c=s>=7?'high':s>=4?'mid':'low';const e=s>=8?'\uD83D\uDD25':s>=6?'\u2705':s>=4?'\u26A0\uFE0F':'\u274C';return'<span class="score '+c+'">'+e+' '+s+'/10</span>';}
@@ -1151,12 +1159,30 @@ function saveField(el,field,isNum=false){
   save();
 }
 
+// ✏️ Modifier le nom d'une paire (clic sur le titre dans la fiche)
+function editArticleName(id){
+  const art=articles.find(a=>a.id===id);if(!art)return;
+  const nouveau=prompt('Modifier le nom de la paire :',art.nom||'');
+  if(nouveau!==null&&nouveau.trim()!==''){
+    art.nom=nouveau.trim();
+    save();
+    document.getElementById('dNom').textContent=art.nom+(art.best?' ':'');
+    renderStock();renderVentes();renderDashboard();
+    showToast('✅ Nom modifié');
+  }
+}
+
 function openDetail(id){
   currentId=id;const a=articles.find(x=>x.id===id);if(!a)return;
   const photos=a.photos&&a.photos.length?a.photos:[];
-  document.getElementById('dmainPhoto').innerHTML=photos[0]?'<img src="'+getPhotoURL(photos[0])+'">':`<span style="font-size:50px">${catEmoji(a.categorie)}</span>`;
+  document.getElementById('dmainPhoto').innerHTML=coverPhoto(a)?'<img src="'+getPhotoURL(coverPhoto(a))+'">':`<span style="font-size:50px">${catEmoji(a.categorie)}</span>`;
   document.getElementById('dPhotos').innerHTML=photos.length>1?photos.map((p,i)=>{const url=getPhotoURL(p);return url?'<img src="'+url+'" class="'+(i===0?'main':'')+'" onclick="setMainPhoto(this,\''+url.replace(/'/g,"\\'")+'\')">':'';}).join(''):'';
   document.getElementById('dNom').textContent=a.nom+(a.best?' ':'');
+  // ✏️ Rendre le nom éditable au clic
+  const dNomEl=document.getElementById('dNom');
+  dNomEl.style.cursor='pointer';
+  dNomEl.title='Appuie pour modifier le nom';
+  dNomEl.onclick=function(){editArticleName(a.id);};
   const j=ageJours(a.date);
   document.getElementById('dMeta').innerHTML=a.plateforme+' '+fmtDate(a.date)+' '+vintedTag(a.vinted);
   document.getElementById('dScore').innerHTML=scoreHtml(scoreRentabilite(a));
@@ -1209,7 +1235,17 @@ function openDetail(id){
   }
   openM('mDetail');
 }
-function setMainPhoto(el,src){document.getElementById('dmainPhoto').innerHTML='<img src="'+src+'">';document.querySelectorAll('#dPhotos img').forEach(i=>i.classList.remove('main'));el.classList.add('main');}
+function setMainPhoto(el,src){
+  document.getElementById('dmainPhoto').innerHTML='<img src="'+src+'">';
+  document.querySelectorAll('#dPhotos img').forEach(i=>i.classList.remove('main'));
+  el.classList.add('main');
+  // 📌 Mémoriser ce choix comme photo de couverture
+  const art=articles.find(a=>a.id===currentId);
+  if(art&&art.photos){
+    const idx=Array.from(document.querySelectorAll('#dPhotos img')).indexOf(el);
+    if(idx>=0){art.coverIndex=idx;save();renderStock();renderVentes();showToast('📌 Photo principale définie');}
+  }
+}
 function updateSim(){const slider=document.getElementById('simSlider');if(!slider)return;const art=articles.find(a=>a.id===currentId);if(!art)return;const pv=parseInt(slider.value);const valEl=document.getElementById('simVal');if(valEl)valEl.textContent=pv+' \u20ac';const r=calcEst(art.pa||0,art.port||0,pv);if(!r)return;const resEl=document.getElementById('simResult');if(resEl)resEl.innerHTML='<div class="cbox"><div class="crow"><span>Cout</span><span>-'+fmtP(r.cout)+'</span></div><div class="crow tot"><span>Marge nette</span><span style="color:'+(r.net>=0?'var(--green)':'var(--red)')+'">'+fmt(r.net)+'</span></div><div class="crow"><span>ROI</span><span>'+r.roi.toFixed(1)+'%</span></div></div>';}
 function updateNego(){const slider=document.getElementById('negoSlider');if(!slider)return;const art=articles.find(a=>a.id===currentId);if(!art)return;const pv=parseInt(slider.value);const pm=prixMin(art.pa||0,art.port||0);const valEl=document.getElementById('negoVal');if(valEl)valEl.textContent=pv+' \u20ac';const r=calcEst(art.pa||0,art.port||0,pv);const ok=pv>=pm;const resEl=document.getElementById('negoResult');if(resEl)resEl.innerHTML='<div class="crow"><span>Marge si accepte</span><span style="color:'+(ok?'var(--green)':'var(--red)')+'">'+(r?fmt(r.net):'--')+'</span></div><div style="margin-top:6px;padding:8px;border-radius:8px;background:'+(ok?'var(--green-bg)':'var(--red-bg)')+';font-size:12px;font-weight:600;color:'+(ok?'var(--green)':'var(--red)')+'">'+(ok?'OK Accepter - tu restes gagnant':'Non Refuser - en dessous du minimum')+'</div>';}
 function updateDetailCalc(){const art=articles.find(a=>a.id===currentId);if(!art)return;const pv=parseFloat(document.getElementById('dPv').value)||0;if(!pv)return;const cout=(art.pa||0)+(art.port||0);const net=pv-cout;const roi=cout>0?net/cout*100:0;document.getElementById('dCalc').innerHTML='<div class="cbox"><div class="crow"><span>Cout total (PA+port)</span><span>'+fmtP(cout)+'</span></div><div class="crow"><span>Prix de vente</span><span>'+fmtP(pv)+'</span></div><div class="crow tot"><span>Marge nette</span><span style="color:'+(net>=0?'var(--green)':'var(--red)')+'">'+fmt(net)+'</span></div><div class="crow"><span>ROI</span><span>'+roi.toFixed(1)+'%</span></div></div>';}
