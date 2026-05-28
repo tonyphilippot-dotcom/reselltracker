@@ -1,4 +1,4 @@
-const CACHE = 'reselltracker-v26';
+const CACHE = 'reselltracker-v27';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
