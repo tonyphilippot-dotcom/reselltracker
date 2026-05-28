@@ -1074,7 +1074,7 @@ function renderStock(){
       const base=a.dateRecu||a.date;
       if(base){const d=Math.max(0,Math.floor((new Date(a.dateVente+'T00:00:00')-new Date(base+'T00:00:00'))/864e5));delaiVente='<div class="scm" style="color:var(--green)">⏱️ vendu en '+d+'j</div>';}
     }
-    return '<div class="scard" data-id="'+a.id+'" onclick="openDetail(\''+a.id+'\')"><div class="age-bar" style="background:'+ageC+'"></div><div class="sphoto">'+thumb(a)+(s?'<div class="score-dot" style="color:'+(s>=7?'var(--green)':s>=4?'var(--amber)':'var(--red)')+'">'+s+'/10</div>':'')+(a.best?'<div class="best-dot">&#11088;</div>':'')+(dormant?'<div style="position:absolute;top:3px;left:3px;font-size:9px;font-weight:600;padding:2px 6px;border-radius:8px;background:rgba(255,85,102,0.9);color:#fff">😴 '+j+'j</div>':'')+'</div><div class="sbody"><div class="sname">'+a.nom+'</div><div class="sdet">'+([a.taille,a.couleur].filter(Boolean)[0]||a.plateforme)+'</div><div class="spa">'+fmtP(a.pa||0)+(pvBas?' &#9888;':'')+'</div>'+(a.pvcible?'<div class="smg">&#10145;'+fmtP(a.pvcible)+'</div>':'')+delaiVente+'<span class="bdg '+a.statut+'">'+statLabel(a.statut)+'</span>'+vintedTag(a.vinted)+'</div></div>';
+    return '<div class="scard" data-id="'+a.id+'" onclick="openDetail(\''+a.id+'\')"><div class="age-bar" style="background:'+ageC+'"></div><div class="sphoto">'+thumb(a)+(s?'<div class="score-dot" style="color:'+(s>=7?'var(--green)':s>=4?'var(--amber)':'var(--red)')+'">'+s+'/10</div>':'')+(a.best?'<div class="best-dot">&#11088;</div>':'')+(dormant?'<div style="position:absolute;top:3px;left:3px;font-size:9px;font-weight:600;padding:2px 6px;border-radius:8px;background:rgba(255,85,102,0.9);color:#fff">😴 '+j+'j</div>':'')+'</div><div class="sbody"><div class="sname">'+a.nom+'</div><div class="sdet">'+([a.taille,a.couleur].filter(Boolean)[0]||a.plateforme)+'</div><div class="spa">'+fmtP(a.pa||0)+(pvBas?' &#9888;':'')+'</div>'+function(){if(a.statut==='vendu'){const r=calcMarge(a);return r&&r.net?'<div class="smg" style="color:'+(r.net>=0?'var(--green)':'var(--red)')+'">'+fmt(r.net)+' €</div>':'';}if(!['vendu','retour'].includes(a.statut)&&a.pvcible)return '<div class="smg">&#10145;'+fmtP(a.pvcible)+'</div>';return '';}()+delaiVente+'<span class="bdg '+a.statut+'">'+statLabel(a.statut)+'</span>'+vintedTag(a.vinted)+'</div></div>';
   }).join('')+'<div class="scard sadd" onclick="openAddModal()"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg><span>Ajouter</span></div>';
 }
 
@@ -1271,6 +1271,13 @@ function openDetail(id){
   dNomEl.onclick=function(){editArticleName(a.id);};
   // 🗑️ Cacher le bouton "Partager" (inutile)
   document.querySelectorAll('[onclick*="shareArticleImage"]').forEach(b=>b.style.display='none');
+  // 🗑️ Cacher "Racheter ce modèle" (redondant avec Dupliquer)
+  document.querySelectorAll('[onclick*="racheterArticle"]').forEach(b=>{
+    let el=b;
+    // Cacher aussi le conteneur parent si c'est un wrapper
+    if(b.parentElement&&b.parentElement.childElementCount===1)el=b.parentElement;
+    el.style.display='none';
+  });
   const j=ageStock(a);
   document.getElementById('dMeta').innerHTML=a.plateforme+' '+fmtDate(a.date)+' '+vintedTag(a.vinted);
   document.getElementById('dScore').innerHTML=scoreHtml(scoreRentabilite(a));
@@ -1294,6 +1301,11 @@ function openDetail(id){
   const q=encodeURIComponent(((a.marque||'')+' '+(a.modele||a.nom)+' '+(a.taille||'')).trim());
   document.getElementById('dLinks').innerHTML='<a href="https://www.stockx.com/search?s='+q+'" class="plink" target="_blank">StockX</a><a href="https://www.farfetch.com/fr/shopping/search/?q='+q+'" class="plink" target="_blank">Farfetch</a><a href="https://www.vinted.fr/catalog?search_text='+q+'" class="plink" target="_blank">Vinted</a><a href="https://www.vestiairecollective.com/search/?q='+q+'" class="plink" target="_blank">Vestiaire</a>';
   document.getElementById('dPv').value=a.pv||'';document.getElementById('dVinted').value=a.vinted||'tony';
+  // ✅ Sauvegarder le changement de compte Vinted immédiatement
+  document.getElementById('dVinted').onchange=function(){
+    const art=articles.find(x=>x.id===currentId);
+    if(art){art.vinted=this.value;save();renderStock();renderVentes();renderDashboard();showToast('✅ Compte Vinted mis à jour');}
+  };
   document.getElementById('dCalc').innerHTML='';document.getElementById('dAiBox').innerHTML='';document.getElementById('dVintedDesc').innerHTML='';
   document.getElementById('dBtnVendu').style.display=a.statut==='vendu'?'none':'block';
   document.getElementById('dBtnRetour').style.display=a.statut==='vendu'?'block':'none';
