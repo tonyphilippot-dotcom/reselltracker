@@ -14,7 +14,7 @@ function _addSafeAreaCover(){
   if(document.getElementById('safeAreaBottomCover'))return;
   const cover=document.createElement('div');
   cover.id='safeAreaBottomCover';
-  cover.style.cssText='position:fixed;bottom:0;left:0;right:0;height:env(safe-area-inset-bottom, 34px);background:#13131f;z-index:9999;pointer-events:none';
+  cover.style.cssText='position:fixed;bottom:0;left:0;right:0;height:60px;background:#13131f;z-index:45;pointer-events:none';
   document.body.appendChild(cover);
 }
 window.addEventListener('DOMContentLoaded',_addSafeAreaCover);
