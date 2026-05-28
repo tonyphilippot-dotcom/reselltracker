@@ -1251,13 +1251,16 @@ function openDetail(id){
     const modal=document.querySelector('#mDetail .modal');
     if(!modal)return;
     const maxW=modal.clientWidth;
+    let coupable='';
     modal.querySelectorAll('*').forEach(el=>{
       if(el.scrollWidth>maxW+2 && !el.classList.contains('dphotos') && el.id!=='dPhotos'){
+        if(!coupable)coupable=(el.id||el.className||el.tagName);
         el.style.maxWidth='100%';
         el.style.overflowX='hidden';
         el.style.overflowWrap='break-word';
       }
     });
+    // Décommenter pour debug : if(coupable)showToast('Débordement: '+coupable);
   },120);
 }
 function setMainPhoto(el,src){
