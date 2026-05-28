@@ -882,6 +882,11 @@ function racheterArticle(){
 function changeStatut(newStatut){
   const art=articles.find(a=>a.id===currentId);if(!art)return;
   art.statut=newStatut;
+  const today=new Date().toISOString().split('T')[0];
+  // 📦 Réception : si on passe en stock et pas de date réception, on la met aujourd'hui
+  if(newStatut==='stock'&&!art.dateRecu)art.dateRecu=today;
+  // 🏷️ Mise en vente : si on passe en vente et pas de date, on la met aujourd'hui
+  if(newStatut==='vente'&&!art.dateMiseEnVente)art.dateMiseEnVente=today;
   // Si on passe en attente/stock/vente, retirer les infos de vente
   if(['attente','stock','vente'].includes(newStatut)){
     art.retour=false;
@@ -901,6 +906,9 @@ function calcMarge(art){if(!art.pv)return null;const cout=(art.pa||0)+(art.port|
 function calcEst(pa,port,pv){if(!pv||!pa)return null;const cout=pa+port;const fraisV=0;const net=pv-cout;const roi=cout>0?net/cout*100:0;return{cout,fraisV,net,roi};}
 function prixMin(pa,port){return Math.ceil((pa+port)*100)/100;}
 function ageJours(d){if(!d)return 0;return Math.floor((new Date()-new Date(d+'T00:00:00'))/864e5);}
+// 📅 Date de référence pour l'ancienneté : réception si dispo, sinon achat
+function dateRef(a){return a.dateRecu||a.date;}
+function ageStock(a){return ageJours(dateRef(a));}
 function ageColor(j){return j<15?'var(--green)':j<30?'var(--amber)':'var(--red)';}
 function scoreRentabilite(art){if(!art.pvcible)return null;const r=calcEst(art.pa||0,art.port||0,art.pvcible);if(!r)return null;if(r.roi>100)return 10;if(r.roi>70)return 9;if(r.roi>50)return 8;if(r.roi>35)return 7;if(r.roi>25)return 6;if(r.roi>15)return 5;if(r.roi>8)return 4;if(r.roi>3)return 3;if(r.roi>0)return 2;return 1;}
 function fmt(v){return(v>=0?'+':'')+v.toFixed(2)+' \u20ac';}
@@ -1097,13 +1105,23 @@ function buildDGrid(a,cout){
       +' id="'+id+'" value="'+val+'" placeholder="'+ph+'" type="'+t+'"'+s
       +' onchange="'+oc+'"></div>';
   }
+  function dateInp(id,val,lbl,field){
+    var oc="saveField(this,'"+field+"')";
+    return '<div class="dfield"><div class="dfield-lbl">'+lbl+'</div>'
+      +'<input style="width:100%;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:6px 8px;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;margin-top:2px"'
+      +' id="'+id+'" value="'+(val||'')+'" type="date" onchange="'+oc+'"></div>';
+  }
   return inp('edit-marque',a.marque||'','Marque','Ex: New Balance','marque',false)
     +inp('edit-modele',a.modele||'','Modèle','Ex: 9060','modele',false)
     +inp('edit-taille',a.taille||'','Taille EU','Ex: 38','taille',false)
     +inp('edit-taillecm',a.tailleCm||'','Taille CM','Ex: 24.5','tailleCm',false)
     +inp('edit-couleur',a.couleur||'','Couleur','Ex: Blanc','couleur',false)
     +'<div class="dfield"><div class="dfield-lbl">Coût total</div><div class="dfield-val">'+fmtP(cout)+'</div></div>'
-    +inp('edit-pvcible',a.pvcible||'','PV cible €','Ex: 90','pvcible',true);
+    +inp('edit-pvcible',a.pvcible||'','PV cible €','Ex: 90','pvcible',true)
+    +dateInp('edit-date',a.date,'📅 Date achat','date')
+    +dateInp('edit-dateRecu',a.dateRecu,'📦 Date réception','dateRecu')
+    +dateInp('edit-dateMiseEnVente',a.dateMiseEnVente,'🏷️ Date mise en vente','dateMiseEnVente')
+    +dateInp('edit-dateVente',a.dateVente,'✅ Date vente','dateVente');
 }
 
 function ouvrirNoteVendeur(){
@@ -1195,7 +1213,7 @@ function openDetail(id){
   dNomEl.onclick=function(){editArticleName(a.id);};
   // 🗑️ Cacher le bouton "Partager" (inutile)
   document.querySelectorAll('[onclick*="shareArticleImage"]').forEach(b=>b.style.display='none');
-  const j=ageJours(a.date);
+  const j=ageStock(a);
   document.getElementById('dMeta').innerHTML=a.plateforme+' '+fmtDate(a.date)+' '+vintedTag(a.vinted);
   document.getElementById('dScore').innerHTML=scoreHtml(scoreRentabilite(a));
   document.getElementById('dAge').innerHTML=!['vendu','retour'].includes(a.statut)?'<span style="font-size:11px;color:'+ageColor(j)+'">En stock depuis '+j+' jour'+(j>1?'s':'')+'</span>':'';
