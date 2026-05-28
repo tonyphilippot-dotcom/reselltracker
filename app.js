@@ -1111,17 +1111,31 @@ function buildDGrid(a,cout){
       +'<input style="width:100%;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:6px 8px;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;margin-top:2px"'
       +' id="'+id+'" value="'+(val||'')+'" type="date" onchange="'+oc+'"></div>';
   }
-  return inp('edit-marque',a.marque||'','Marque','Ex: New Balance','marque',false)
+  var sec=function(t){return '<div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 8px">'+t+'</div>';};
+  var gOpen='<div class="dgrid">',gClose='</div>';
+  // SECTION 1 — Caractéristiques
+  var html=sec('📋 Caractéristiques')+gOpen
+    +inp('edit-marque',a.marque||'','Marque','Ex: New Balance','marque',false)
     +inp('edit-modele',a.modele||'','Modèle','Ex: 9060','modele',false)
     +inp('edit-taille',a.taille||'','Taille EU','Ex: 38','taille',false)
     +inp('edit-taillecm',a.tailleCm||'','Taille CM','Ex: 24.5','tailleCm',false)
-    +inp('edit-couleur',a.couleur||'','Couleur','Ex: Blanc','couleur',false)
-    +'<div class="dfield"><div class="dfield-lbl">Coût total</div><div class="dfield-val">'+fmtP(cout)+'</div></div>'
-    +inp('edit-pvcible',a.pvcible||'','PV cible €','Ex: 90','pvcible',true)
+    +'<div class="dfield" style="grid-column:span 2"><div class="dfield-lbl">Couleur</div>'
+      +'<input style="width:100%;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:6px 8px;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;margin-top:2px" id="edit-couleur" value="'+(a.couleur||'')+'" placeholder="Ex: Blanc" type="text" onchange="saveField(this,\'couleur\')"></div>'
+    +gClose;
+  // SECTION 2 — Suivi des dates (2x2 propre)
+  html+=sec('📅 Suivi des dates')+gOpen
     +dateInp('edit-date',a.date,'📅 Date achat','date')
     +dateInp('edit-dateRecu',a.dateRecu,'📦 Date réception','dateRecu')
-    +dateInp('edit-dateMiseEnVente',a.dateMiseEnVente,'🏷️ Date mise en vente','dateMiseEnVente')
-    +dateInp('edit-dateVente',a.dateVente,'✅ Date vente','dateVente');
+    +dateInp('edit-dateMiseEnVente',a.dateMiseEnVente,'🏷️ Mise en vente','dateMiseEnVente')
+    +dateInp('edit-dateVente',a.dateVente,'✅ Date vente','dateVente')
+    +gClose;
+  // SECTION 3 — Prix (coût + PV cible côte à côte, juste avant la section vente)
+  html+=sec('💰 Prix')+gOpen
+    +'<div class="dfield"><div class="dfield-lbl">Coût total</div><div class="dfield-val">'+fmtP(cout)+'</div></div>'
+    +'<div class="dfield"><div class="dfield-lbl">🎯 PV cible €</div>'
+      +'<input style="width:100%;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:6px 8px;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;margin-top:2px" id="edit-pvcible" value="'+(a.pvcible||'')+'" placeholder="Ex: 90" type="number" step="0.01" onchange="saveField(this,\'pvcible\',true)"></div>'
+    +gClose;
+  return html;
 }
 
 function ouvrirNoteVendeur(){
@@ -1219,7 +1233,9 @@ function openDetail(id){
   document.getElementById('dAge').innerHTML=!['vendu','retour'].includes(a.statut)?'<span style="font-size:11px;color:'+ageColor(j)+'">En stock depuis '+j+' jour'+(j>1?'s':'')+'</span>':'';
   document.getElementById('dPvBasAlert').innerHTML=a.pvcible&&a.pvcible<prixMin(a.pa||0,a.port||0)?'<div class="pvbas-banner">PV trop bas ! Min : <b>'+fmtP(prixMin(a.pa||0,a.port||0))+'</b></div>':'';
   const cout=(a.pa||0)+(a.port||0);
-  document.getElementById('dGrid').innerHTML=buildDGrid(a,cout);
+  const dGridEl=document.getElementById('dGrid');
+  dGridEl.style.display='block';
+  dGridEl.innerHTML=buildDGrid(a,cout);
   // Alerte blacklist dans detail
   if(a.vendeur && estBlackliste(a.vendeur)){
     document.getElementById('dPvBasAlert').innerHTML+='<div class="pvbas-banner" style="background:var(--red-bg);color:var(--red)">&#128683; Vendeur blackliste : '+a.vendeur+'</div>';
