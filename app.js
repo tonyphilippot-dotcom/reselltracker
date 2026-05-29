@@ -508,10 +508,24 @@ function openAddModal(){
   document.getElementById('pvBasAlert').innerHTML='';document.getElementById('importStatus').innerHTML='';
   document.getElementById('mAddTitle').textContent='Nouvel article';
   resetColorPicker();openM('mAdd');
+  // 🚫 Port jamais utilisé : forcer à 0 et cacher le champ
+  setTimeout(()=>{
+    const p=document.getElementById('f-port');
+    if(p){p.value='0';
+      // Cacher le conteneur du champ port
+      let box=p.closest('.field')||p.closest('div');
+      if(box)box.style.display='none';
+    }
+  },30);
 }
 function openGal(){
   const el=document.getElementById('piGal');
-  if(el){el.removeAttribute('capture');el.setAttribute('accept','image/*');el.click();}
+  if(el){
+    el.removeAttribute('capture');
+    el.setAttribute('accept','image/png,image/jpeg,image/jpg,image/webp,image/heic');
+    el.setAttribute('multiple','multiple');
+    el.click();
+  }
 }
 
 // ── PHOTOS
@@ -1036,7 +1050,9 @@ function setStockSort(v){stockSort=v;renderStock();}
 function renderStock(){
   const search=(document.getElementById('stockSearch').value||'').toLowerCase();
   let arts=[...articles];
-  const filters={actifs:a=>!['vendu','retour'].includes(a.statut),attente:a=>a.statut==='attente',stock:a=>a.statut==='stock',vente:a=>a.statut==='vente',vendu:a=>a.statut==='vendu',retour:a=>a.statut==='retour',Hacoo:a=>a.plateforme==='Hacoo',YepExpress:a=>a.plateforme==='YepExpress',tony:a=>a.vinted==='tony',laetitia:a=>a.vinted==='laetitia'};
+  // 📦 Masquer les paires archivées (encaissées) sauf si on veut les voir
+  if(stockFilter!=='archive')arts=arts.filter(a=>!a.archived);
+  const filters={actifs:a=>!['vendu','retour'].includes(a.statut),attente:a=>a.statut==='attente',stock:a=>a.statut==='stock',vente:a=>a.statut==='vente',vendu:a=>a.statut==='vendu',retour:a=>a.statut==='retour',archive:a=>a.archived,Hacoo:a=>a.plateforme==='Hacoo',YepExpress:a=>a.plateforme==='YepExpress',tony:a=>a.vinted==='tony',laetitia:a=>a.vinted==='laetitia'};
   ['Chaussures','V\u00eatements','Sacs','Accessoires'].forEach(c=>{filters[c]=a=>a.categorie===c;});
   if(filters[stockFilter])arts=arts.filter(filters[stockFilter]);
   if(search)arts=arts.filter(a=>[a.nom,a.marque,a.modele,a.taille,a.couleur,a.notes].join(' ').toLowerCase().includes(search));
@@ -1544,7 +1560,20 @@ function renderPaiements(){
   if(!filtered.length){list.innerHTML='<div class="empty"><div class="eicon">&#128179;</div>Aucun paiement</div>';return;}
   list.innerHTML=filtered.sort((a,b)=>b.date.localeCompare(a.date)).map(p=>'<div class="pay-row"><div style="flex:1"><div class="pay-nom">'+p.nom+'</div><div class="pay-meta">'+vintedTag(p.vinted)+' '+fmtDate(p.date)+'</div></div><div style="text-align:right"><div class="pay-amount'+(p.recu?' recu':'')+'">'+fmtP(p.montant)+'</div>'+(!p.recu?'<button class="bsmall g" style="margin-top:4px;font-size:10px;padding:4px 8px" onclick="marquerPayRecu(\''+p.id+'\')">Recu</button>':'')+'</div></div>').join('');
 }
-function marquerPayRecu(id){const pays=JSON.parse(localStorage.getItem('rt-pay')||'[]');const p=pays.find(x=>x.id===id);if(!p)return;p.recu=true;p.dateRecu=new Date().toISOString().split('T')[0];localStorage.setItem('rt-pay',JSON.stringify(pays));renderPaiements();}
+function marquerPayRecu(id){
+  const pays=JSON.parse(localStorage.getItem('rt-pay')||'[]');
+  const p=pays.find(x=>x.id===id);if(!p)return;
+  p.recu=true;p.dateRecu=new Date().toISOString().split('T')[0];
+  localStorage.setItem('rt-pay',JSON.stringify(pays));
+  // 📦 Archiver la paire correspondante (la sort du stock principal)
+  if(p.artId){
+    const art=articles.find(a=>a.id===p.artId);
+    if(art){art.archived=true;}
+  }
+  save();
+  renderPaiements();renderStock();renderDashboard();
+  showToast('✅ Encaissé et archivé');
+}
 
 // ── EXPORT CSV
 function backupData(){
