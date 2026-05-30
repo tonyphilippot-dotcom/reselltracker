@@ -521,6 +521,14 @@ function openAddModal(){
       let box2=pvc.closest('.field')||pvc.closest('div');
       if(box2)box2.style.display='none';
     }
+    // 🚫 Cacher les statuts "Retour" et "En attente" à la création (créables seulement via la fiche)
+    const stSel=document.getElementById('f-statut');
+    if(stSel){
+      Array.from(stSel.options).forEach(o=>{
+        if(o.value==='retour'||o.value==='attente')o.style.display='none';
+      });
+      if(stSel.value==='retour'||stSel.value==='attente')stSel.value='stock';
+    }
   },30);
 }
 function openGal(){
@@ -918,7 +926,19 @@ function changeStatut(newStatut){
   openDetail(currentId); // recharge le détail
 }
 
-function marquerRetour(){const art=articles.find(a=>a.id===currentId);if(!art)return;if(!confirm('Marquer retour acheteur ?'))return;art.retour=true;art.statut='retour';art.pv=null;art.dateVente=null;save();closeM('mDetail');renderStock();renderDashboard();}
+function marquerRetour(){
+  const art=articles.find(a=>a.id===currentId);if(!art)return;
+  if(!confirm('Marquer retour acheteur ? La vente sera annulée et retirée de tes bénéfices.'))return;
+  art.retour=true;art.statut='retour';art.pv=null;art.dateVente=null;art.archived=false;
+  // 🗑️ Supprimer le paiement lié à cette vente (pour recalculer les stats)
+  let pays=JSON.parse(localStorage.getItem('rt-pay')||'[]');
+  pays=pays.filter(p=>p.artId!==art.id);
+  localStorage.setItem('rt-pay',JSON.stringify(pays));
+  save();
+  closeM('mDetail');
+  renderStock();renderDashboard();renderVentes();renderPaiements();
+  showToast('↩️ Retour enregistré, vente annulée');
+}
 
 // ── CALCULS
 function calcMarge(art){if(!art.pv)return null;const cout=(art.pa||0)+(art.port||0);const fraisV=0;const net=art.pv-cout;const roi=cout>0?net/cout*100:0;return{cout,fraisV,net,roi};}
@@ -1071,10 +1091,10 @@ function cleanStockPills(){
   if(_stockPillsCleaned)return;
   const pills=document.getElementById('stockPills');
   if(!pills)return;
-  // Garder uniquement : En stock, Attente, Vendus, Retours
+  // Garder uniquement : En stock, Vendus, Retours
   pills.querySelectorAll('.pill').forEach(b=>{
     const oc=b.getAttribute('onclick')||'';
-    const garder=/'(stock|attente|vendu|retour)'/.test(oc);
+    const garder=/'(stock|vendu|retour)'/.test(oc);
     b.style.display=garder?'':'none';
     b.classList.remove('on');
     if(/'stock'/.test(oc))b.classList.add('on');
