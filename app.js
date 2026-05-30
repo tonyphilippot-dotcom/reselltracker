@@ -1,4 +1,19 @@
 
+// 🩺 CAPTEUR D'ERREUR VISIBLE (diagnostic écran noir)
+window.addEventListener('error', function(ev){
+  try{
+    let b=document.getElementById('__errbar');
+    if(!b){
+      b=document.createElement('div');
+      b.id='__errbar';
+      b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#cc0000;color:#fff;font:12px/1.4 monospace;padding:10px 14px;max-height:45vh;overflow:auto;white-space:pre-wrap;word-break:break-word';
+      b.addEventListener('click',function(){b.remove();});
+      document.body.appendChild(b);
+    }
+    b.textContent='⚠️ ERREUR (tape pour fermer)\n'+(ev.message||'?')+'\n'+((ev.filename||'').split('/').pop())+' : ligne '+ev.lineno;
+  }catch(e){}
+});
+
 // ── DATA
 // 🛡️ Chargement avec fallback sur backup si principal vide
 function _loadWithFallback(key){
