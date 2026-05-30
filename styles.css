@@ -2,7 +2,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100dvh;background:var(--bg2);color:var(--text);font-family:'DM Sans',sans-serif;overflow:hidden;overflow-x:hidden;margin:0;padding:0;width:100%;max-width:100%}
 #app{height:100dvh;display:flex;flex-direction:column;background:var(--bg);overflow-x:hidden;width:100%;max-width:100%}
-.hdr{background:var(--bg);padding:calc(env(safe-area-inset-top,40px) + 12px) 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.hdr{background:var(--bg);padding:max(54px,calc(env(safe-area-inset-top,0px) + 12px)) 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
 .hdr-row{display:flex;justify-content:space-between;align-items:center}
 .hdr h1{font-size:21px;font-weight:600;letter-spacing:-.4px}.hdr h1 span{color:var(--accent)}
 .hdr-sub{font-size:11px;color:var(--text2);margin-top:1px}
@@ -12,7 +12,7 @@ html,body{height:100dvh;background:var(--bg2);color:var(--text);font-family:'DM 
 .obj-labels b{color:var(--green);font-family:'DM Mono',monospace}
 .obj-bg{height:4px;background:var(--card2);border-radius:2px}
 .obj-fill{height:4px;background:var(--green);border-radius:2px;transition:width .5s}
-.tabbar{display:flex;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:max(20px,env(safe-area-inset-bottom,20px));padding-top:8px;position:relative;z-index:50;min-height:60px}
+.tabbar{display:flex;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0;padding-bottom:env(safe-area-inset-bottom,8px);padding-top:8px;position:relative;z-index:50;min-height:56px}
 .tbb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:6px 2px 2px;gap:3px;border:none;background:none;color:var(--text2);font-family:inherit;font-size:10px;font-weight:600;cursor:pointer;position:relative;min-height:64px}
 .tbb svg{width:22px;height:22px;flex-shrink:0;display:block}
 .tbb::after{content:attr(data-label);display:block;font-size:10px;line-height:1.1;color:var(--text2);white-space:nowrap}
