@@ -479,6 +479,11 @@ function resetColorPicker(){selectedColors=[];document.querySelectorAll('#colorP
 
 // ── NAVIGATION
 function showScreen(name){
+  // 🗑️ Cacher le bouton Historique de la navbar (5e onglet, inutile)
+  const tbbs=document.querySelectorAll('.tbb');
+  if(tbbs[4])tbbs[4].style.display='none';
+  // Si on tente d'aller sur historique, rediriger vers ventes
+  if(name==='historique')name='ventes';
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   document.querySelectorAll('.tbb').forEach(b=>b.classList.remove('on'));
   document.getElementById('screen-'+name).classList.add('on');
@@ -1146,7 +1151,7 @@ function renderStock(){
       if(base){const d=Math.max(0,Math.floor((new Date(a.dateVente+'T00:00:00')-new Date(base+'T00:00:00'))/864e5));delaiVente='<div class="scm" style="color:var(--green)">⏱️ vendu en '+d+'j</div>';}
     }
     return '<div class="scard" data-id="'+a.id+'" onclick="openDetail(\''+a.id+'\')"><div class="age-bar" style="background:'+ageC+'"></div><div class="sphoto">'+thumb(a)+(s?'<div class="score-dot" style="color:'+(s>=7?'var(--green)':s>=4?'var(--amber)':'var(--red)')+'">'+s+'/10</div>':'')+(a.best?'<div class="best-dot">&#11088;</div>':'')+(dormant?'<div style="position:absolute;top:3px;left:3px;font-size:9px;font-weight:600;padding:2px 6px;border-radius:8px;background:rgba(255,85,102,0.9);color:#fff">😴 '+j+'j</div>':'')+'</div><div class="sbody"><div class="sname">'+a.nom+'</div><div class="sdet">'+([a.taille,a.couleur].filter(Boolean)[0]||a.plateforme)+'</div><div class="spa">'+fmtP(a.pa||0)+'</div>'+function(){if(a.statut==='vendu'){const r=calcMarge(a);let html='';if(a.pv)html+='<div class="smg" style="color:var(--blue)">&#128722; '+fmtP(a.pv)+'</div>';if(r&&r.net)html+='<div class="scm" style="color:'+(r.net>=0?'var(--green)':'var(--red)');html+='">'+fmt(r.net)+' €</div>';return html;}return '';}()+delaiVente+'<span class="bdg '+a.statut+'">'+statLabel(a.statut)+'</span>'+vintedTag(a.vinted)+'</div></div>';
-  }).join('')+'<div class="scard sadd" onclick="openAddModal()"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg><span>Ajouter</span></div>';
+  }).join('')+(stockFilter==='stock'?'<div class="scard sadd" onclick="openAddModal()"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg><span>Ajouter</span></div>':'');
 }
 
 // ── VENTES
@@ -1585,7 +1590,10 @@ function openTrkModal(){['trk-nom','trk-num','trk-eta'].forEach(id=>document.get
 function saveTrk(){const num=document.getElementById('trk-num').value.trim();if(!num){alert('Entrez un numero');return;}tracking.push({id:Date.now().toString(),nom:document.getElementById('trk-nom').value||'Colis',num,carrier:document.getElementById('trk-carrier').value,date:document.getElementById('trk-date').value,step:parseInt(document.getElementById('trk-stat').value),eta:document.getElementById('trk-eta').value});save();closeM('mTrk');renderTracking();}
 function updateTrkStep(id,step){const t=tracking.find(x=>x.id===id);if(!t)return;t.step=parseInt(step);save();renderTracking();}
 function suppTrk(id){if(!confirm('Supprimer ?'))return;tracking=tracking.filter(x=>x.id!==id);save();renderTracking();}
-function renderTracking(){const list=document.getElementById('trackingList');if(!tracking.length){list.innerHTML='<div class="empty"><div class="eicon">&#128230;</div>Aucun colis</div>';return;}list.innerHTML=[...tracking.filter(t=>t.step<4),...tracking.filter(t=>t.step>=4)].map(t=>'<div class="trow"><div style="font-size:22px">'+(t.step>=4?'OK':t.step>=3?'camion':t.step>=2?'avion':t.step>=1?'boite':'usine')+'</div><div class="tinfo"><div class="tnom">'+t.nom+'</div><div class="tnum">'+t.num+' '+t.carrier+'</div>'+(t.eta?'<div style="font-size:11px;color:var(--text2)">Livraison: '+t.eta+'</div>':'')+'<div class="delivery-bar">'+TRK_STEPS.map((s,i)=>'<div class="db-step '+(i<t.step?'done':i===t.step?'current':'')+'"><div class="db-dot">'+(i<t.step?'v':'')+'</div><div class="db-lbl">'+s+'</div></div>').join('')+'</div></div></div><div style="display:flex;gap:6px;margin:-4px 0 10px;padding:0 4px"><select onchange="updateTrkStep(\''+t.id+'\',this.value)" style="flex:1;font-size:12px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 8px;color:var(--text);font-family:inherit">'+TRK_STEPS.map((s,i)=>'<option value="'+i+'" '+(t.step===i?'selected':'')+'>'+s+'</option>').join('')+'</select><button class="bsmall" onclick="suppTrk(\''+t.id+'\')">Suppr</button></div>').join('');}
+function renderTracking(){
+  // 🗑️ Cacher le bouton "Ajouter un colis" (inutile)
+  document.querySelectorAll('[onclick*="openTrkModal"]').forEach(b=>b.style.display='none');
+  const list=document.getElementById('trackingList');if(!tracking.length){list.innerHTML='<div class="empty"><div class="eicon">&#128230;</div>Aucun colis</div>';return;}list.innerHTML=[...tracking.filter(t=>t.step<4),...tracking.filter(t=>t.step>=4)].map(t=>'<div class="trow"><div style="font-size:22px">'+(t.step>=4?'OK':t.step>=3?'camion':t.step>=2?'avion':t.step>=1?'boite':'usine')+'</div><div class="tinfo"><div class="tnom">'+t.nom+'</div><div class="tnum">'+t.num+' '+t.carrier+'</div>'+(t.eta?'<div style="font-size:11px;color:var(--text2)">Livraison: '+t.eta+'</div>':'')+'<div class="delivery-bar">'+TRK_STEPS.map((s,i)=>'<div class="db-step '+(i<t.step?'done':i===t.step?'current':'')+'"><div class="db-dot">'+(i<t.step?'v':'')+'</div><div class="db-lbl">'+s+'</div></div>').join('')+'</div></div></div><div style="display:flex;gap:6px;margin:-4px 0 10px;padding:0 4px"><select onchange="updateTrkStep(\''+t.id+'\',this.value)" style="flex:1;font-size:12px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 8px;color:var(--text);font-family:inherit">'+TRK_STEPS.map((s,i)=>'<option value="'+i+'" '+(t.step===i?'selected':'')+'>'+s+'</option>').join('')+'</select><button class="bsmall" onclick="suppTrk(\''+t.id+'\')">Suppr</button></div>').join('');}
 
 // ── CALENDRIER
 function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
@@ -1841,7 +1849,7 @@ save();
 
 // ── INIT
 // ── SWIPE NAVIGATION
-const SWIPE_SCREENS=['dashboard','stock','ventes','futurs','historique'];
+const SWIPE_SCREENS=['dashboard','stock','ventes','futurs'];
 let swipeStartX=0,swipeStartY=0,swipeTargetId=null;
 document.querySelector('.content').addEventListener('touchstart',e=>{
   swipeStartX=e.touches[0].clientX;
