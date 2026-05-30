@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ResellTracker">
+<meta name="theme-color" content="#0a0a18">
+<link rel="manifest" href="manifest.json">
+<title>ResellTracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <div class="hdr">
+    <div class="hdr-row">
+      <div><h1>Resell<span>Tracker</span></h1><div class="hdr-sub" id="hdrSub"></div></div>
+      <div class="hdr-btns">
+        <button class="bsmall" onclick="showScreen('tracking')" style="padding:6px 10px">📦</button>
+        <button class="bsmall" onclick="showScreen('paiements')" style="padding:6px 10px">💳</button>
+        <button class="bsmall" onclick="openM('mSettings')" style="padding:6px 10px">⚙️</button>
+      </div>
+    </div>
+    <div class="obj-wrap" id="objWrap" style="display:none">
+      <div class="obj-labels"><span id="objLbl">Objectif</span><b id="objPct">0%</b></div>
+      <div class="obj-bg"><div class="obj-fill" id="objFill" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div class="content">
+    <!-- DASHBOARD -->
+    <div class="scr on" id="screen-dashboard">
+      <div id="rappelsBanner"></div><div id="pvBasBanner"></div>
+      <div class="tsec" id="periodTab" style="margin-bottom:10px">
+        <div class="ts on" onclick="switchPeriod('month')">Ce mois</div>
+        <div class="ts" onclick="switchPeriod('year')">Cette année</div>
+        <div class="ts" onclick="switchPeriod('all')">Tout</div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-lbl">Bénéfice net (mois)</div><div class="kpi-val kv-g" id="kpi-ben">0,00 €</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">CA brut (mois)</div><div class="kpi-val kv-b" id="kpi-ca">0,00 €</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Stock immobilisé</div><div class="kpi-val kv-a" id="kpi-immo">0,00 €</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Vendus (mois)</div><div class="kpi-val kv-p" id="kpi-vnd">0</div></div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card" style="grid-column:span 2;background:linear-gradient(135deg,rgba(31,217,154,0.15),rgba(31,217,154,0.05))"><div class="kpi-lbl">🏆 Bénéfice total depuis le début</div><div class="kpi-val kv-g" id="kpi-alltime">0,00 €</div></div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-lbl">Tony 💙</div><div class="kpi-val" style="font-size:16px;color:#4d9fff" id="kpi-tony">0,00 €</div></div>
+        <div class="kpi-card"><div class="kpi-lbl">Laetitia 💗</div><div class="kpi-val" style="font-size:16px;color:#ff6bdc" id="kpi-laet">0,00 €</div></div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card" style="grid-column:span 2"><div class="kpi-lbl">💸 Total dépensé (Hacoo + YepExpress)</div><div class="kpi-val" style="color:#ffb547" id="kpi-depense">0,00 €</div></div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-tog">
+          <button class="on" id="ct-m" onclick="switchChart('m')">6 mois</button>
+          <button id="ct-a" onclick="switchChart('a')">Annuel</button>
+          <button id="ct-c" onclick="switchChart('c')">Tony/Laetitia</button>
+        </div>
+        <canvas id="mainChart" height="150"></canvas>
+      </div>
+      <div class="stitle">🛒 Liste de courses intelligente</div><div id="listeCourses"></div>
+      <div class="stitle">⏱️ Temps moyen de vente</div><div id="tempVente"></div>
+      <div class="stitle">🏆 Tops à racheter</div><div id="topArticles"></div>
+      <div class="stitle">Dernières ventes</div><div id="dashSales"></div>
+    </div>
+    <!-- STOCK -->
+    <div class="scr" id="screen-stock">
+      <div class="search-bar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="stockSearch" placeholder="Rechercher…" oninput="renderStock()">
+      </div>
+      <div class="pills" id="stockPills">
+        <button class="pill on" onclick="setFilter('tous',this,'stockFilter')">📋 Tout</button>
+        <button class="pill" onclick="setFilter('actifs',this,'stockFilter')">📦 Actifs</button>
+        <button class="pill" onclick="setFilter('attente',this,'stockFilter')">🕐 Attente</button>
+        <button class="pill" onclick="setFilter('stock',this,'stockFilter')">En stock</button>
+        <button class="pill" onclick="setFilter('vente',this,'stockFilter')">En vente</button>
+        <button class="pill" onclick="setFilter('vendu',this,'stockFilter')">✅ Vendus</button>
+        <button class="pill" onclick="setFilter('retour',this,'stockFilter')">↩️ Retours</button>
+        <button class="pill" onclick="setFilter('Hacoo',this,'stockFilter')">Hacoo</button>
+        <button class="pill" onclick="setFilter('YepExpress',this,'stockFilter')">YepExpress</button>
+        <button class="pill" onclick="setFilter('Chaussures',this,'stockFilter')">👟</button>
+        <button class="pill" onclick="setFilter('Vêtements',this,'stockFilter')">👗</button>
+        <button class="pill" onclick="setFilter('Sacs',this,'stockFilter')">👜</button>
+        <button class="pill" onclick="setFilter('Accessoires',this,'stockFilter')">✨</button>
+        <button class="pill" onclick="setFilter('tony',this,'stockFilter')">Tony</button>
+        <button class="pill" onclick="setFilter('laetitia',this,'stockFilter')">Laetitia</button>
+      </div>
+      <div id="catStats" style="margin-bottom:10px"></div>
+      <div class="sgrid" id="stockGrid"></div>
+    </div>
+    <!-- VENTES -->
+    <div class="scr" id="screen-ventes">
+      <div class="tsec" id="ventesTab">
+        <div class="ts on" onclick="switchVentes('env')">En vente</div>
+        <div class="ts" onclick="switchVentes('vnd')">Vendus</div>
+        <div class="ts" onclick="switchVentes('tony')">Tony</div>
+        <div class="ts" onclick="switchVentes('laetitia')">Laetitia</div>
+      </div>
+      <div id="ventesList"></div>
+    </div>
+    <!-- FUTURS -->
+    <div class="scr" id="screen-futurs">
+      <div class="pills" id="futurPills">
+        <button class="pill on" onclick="setFilter('tous',this,'futurFilter')">Tout</button>
+        <button class="pill" onclick="setFilter('tester',this,'futurFilter')">À tester</button>
+        <button class="pill" onclick="setFilter('interessant',this,'futurFilter')">Intéressant</button>
+        <button class="pill" onclick="setFilter('eviter',this,'futurFilter')">À éviter</button>
+      </div>
+      <div id="futursList"></div>
+    </div>
+    <!-- HISTORIQUE -->
+    <div class="scr" id="screen-historique">
+      <div class="tsec">
+        <div class="ts on" onclick="switchHisto('m')">Par mois</div>
+        <div class="ts" onclick="switchHisto('a')">Annuel</div>
+        <div class="ts" onclick="switchHisto('f')">Fiscal</div>
+      </div>
+      <div id="histoContent"></div>
+    </div>
+    <!-- TRACKING -->
+    <div class="scr" id="screen-tracking">
+      <div class="stitle">Colis en cours</div>
+      <div id="trackingList"></div>
+      <button class="bsec" onclick="openTrkModal()" style="margin-top:8px">+ Ajouter un colis</button>
+    </div>
+    <!-- PLANNING -->
+    <div class="scr" id="screen-planning">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <button class="bsmall" onclick="calPrev()">‹</button>
+        <div style="font-size:15px;font-weight:600" id="calTitle"></div>
+        <button class="bsmall" onclick="calNext()">›</button>
+      </div>
+      <div class="cal-header">
+        <div class="cal-dow">Lun</div><div class="cal-dow">Mar</div><div class="cal-dow">Mer</div>
+        <div class="cal-dow">Jeu</div><div class="cal-dow">Ven</div><div class="cal-dow">Sam</div><div class="cal-dow">Dim</div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="stitle" id="calEventsTitle">Événements</div>
+      <div id="calEvents"></div>
+    </div>
+    <!-- PRIX DU MARCHÉ -->
+    <div class="scr" id="screen-marche">
+      <div class="search-bar" style="margin-bottom:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="marcheSearch" placeholder="Ex: New Balance 9060 taille 38…">
+        <button class="bsmall p" onclick="rechercheMarche()" style="flex-shrink:0;padding:6px 10px">🔍</button>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:12px">L'IA estime le prix du marché Vinted actuel pour un article neuf avec étiquette.</div>
+      <div id="marcheResult"></div>
+      <div class="stitle">Recherches rapides depuis ton stock</div>
+      <div id="marcheStock"></div>
+    </div>
+
+    <!-- VENDEURS -->
+    <div class="scr" id="screen-vendeurs">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:15px;font-weight:600">👤 Mes vendeurs</div>
+        <div id="backupDateLbl" style="font-size:10px;color:var(--text2)"></div>
+      </div>
+      <div id="vendeursList"></div>
+    </div>
+
+    <!-- PAIEMENTS -->
+    <div class="scr" id="screen-paiements">
+      <div class="tsec">
+        <div class="ts on" onclick="switchPay('attente')">En attente</div>
+        <div class="ts" onclick="switchPay('recu')">Reçus</div>
+      </div>
+      <div id="payStats" style="margin-bottom:10px"></div>
+      <div id="paiementsList"></div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <button class="tbb on" onclick="showScreen('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
+    <button class="tbb" onclick="showScreen('stock')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></button>
+    <button class="tbb" onclick="showScreen('ventes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>
+    <button class="tbb" onclick="showScreen('futurs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 8v6M8 11h6"/></svg></button>
+    <button class="tbb" onclick="showScreen('historique')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg></button>
+  </div>
+</div>
+<button class="fab" onclick="openAddModal()">+</button>
+<div id="printSheet"></div>
+
+<!-- MODAL AJOUT -->
+<div class="mbg" id="mAdd"><div class="modal">
+  <div class="mhandle"></div><div class="mtitle" id="mAddTitle">Nouvel article</div>
+  <div style="background:linear-gradient(135deg,var(--green-bg),rgba(155,89,182,0.08));border:1px solid rgba(31,217,154,0.25);border-radius:14px;padding:14px;margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:3px">📸 Photos du produit</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">💡 1<sup>ère</sup> photo (étiquette/commande) → remplit les champs auto. Les suivantes = photos d'annonce.</div>
+    <input type="file" accept="image/*" capture="environment" id="piCam" style="display:none" multiple onchange="handlePhotos(event)">
+    <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" id="piGal" style="display:none" multiple onchange="handlePhotos(event)">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">
+      <button class="bsmall" style="padding:10px 4px;border-radius:10px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.06)" onclick="document.getElementById('piCam').click()">📷<br>Caméra</button>
+      <button class="bsmall" style="padding:10px 4px;border-radius:10px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.06)" onclick="openGal()">🖼️<br>Galerie</button>
+      <button class="bsmall g" style="padding:10px 4px;border-radius:10px;font-size:11px;font-weight:600" onclick="openBarcodeScanner()">📦<br>Code-barres</button>
+    </div>
+    <div id="barcodeScannerWrap" style="display:none;margin-top:8px">
+      <div class="qr-wrap"><video id="barcodeVideo" autoplay playsinline muted></video><div class="qr-overlay"><div class="qr-frame" style="width:220px;height:80px"></div></div></div>
+      <button class="bsmall" onclick="closeBarcodeScanner()" style="width:100%;padding:8px;border-radius:8px;margin-top:4px">✕ Annuler</button>
+    </div>
+    <div id="barcodeStatus" style="font-size:12px;margin-top:4px"></div>
+    <div id="importStatus"></div>
+    <div class="multi-photos" id="addPhotos" style="margin-top:8px"></div>
+  </div>
+  <div class="field"><label>Nom du produit *</label><input id="f-nom" type="text" placeholder="Ex: Nike Air Force 1"></div>
+  <div class="field" id="f-quantite-wrap"><label>Quantité (créera N articles identiques)</label><input id="f-quantite" type="number" min="1" value="1" step="1"></div>
+  <div class="frow">
+    <div class="field"><label>Marque</label><input id="f-marque" type="text" list="marquesList" placeholder="Nike, Adidas… (tape pour rechercher)" autocomplete="off"><datalist id="marquesList"></datalist></div>
+    <div class="field"><label>Modèle</label><input id="f-modele" type="text" placeholder="Air Force 1…"></div>
+  </div>
+  <div class="frow3">
+    <div class="field"><label>Taille EU</label><input id="f-taille" type="text" placeholder="38"></div>
+    <div class="field"><label>Taille CM</label><input id="f-taillecm" type="text" placeholder="24cm"></div>
+    <div class="field"><label>Catégorie</label>
+      <select id="f-cat"><option>Chaussures</option><option>Vêtements</option><option>Sacs</option><option>Accessoires</option><option>Autre</option></select>
+    </div>
+  </div>
+  <div class="field">
+    <label>Couleur(s) / Motif(s) — multi-sélection</label>
+    <div class="color-picker" id="colorPicker"></div>
+    <input id="f-couleur-custom" type="text" placeholder="Autre couleur/motif…" style="margin-top:6px">
+  </div>
+  <div class="frow">
+    <div class="field"><label>Plateforme</label>
+      <select id="f-plat"><option>YepExpress</option><option>Hacoo</option></select>
+    </div>
+    <div class="field"><label>Statut</label>
+      <select id="f-statut"><option value="attente">🕐 En attente (commandée)</option><option value="stock" selected>📦 En stock (reçue)</option><option value="vente">📢 En vente (sur Vinted)</option></select>
+    </div>
+  </div>
+  <div class="frow">
+    <div class="field"><label>Compte Vinted</label>
+      <select id="f-vinted"><option value="tony" selected>Tony 💙</option><option value="laetitia">Laetitia 💗</option><option value="">Pas encore</option></select>
+    </div>
+    <div class="field"><label>État de la boîte</label>
+      <select id="f-boite"><option value="parfaite">✅ Parfaite</option><option value="marques" selected>⚠️ Légères marques</option><option value="sans">❌ Sans boîte</option></select>
+    </div>
+  </div>
+  <div class="field" style="display:none"><label>Bestseller ⭐</label>
+    <select id="f-best"><option value="">Non</option><option value="1">Oui ⭐</option></select>
+  </div>
+  <div class="frow">
+    <div class="field"><label>PA — Prix d'achat €</label><input id="f-pa" type="number" step="0.01" placeholder="0.00" oninput="updateMargePreview()"></div>
+    <input id="f-port" type="hidden" value="0">
+  </div>
+  <div class="field"><label>Date d'achat</label><input id="f-date" type="date"></div>
+  <input id="f-pvc" type="hidden" value="0">
+  <div id="margePreview"></div><div id="pvBasAlert"></div>
+  <div class="field">
+    <label>N° suivi colis</label>
+    <div style="display:flex;gap:6px">
+      <input id="f-tracking" type="text" placeholder="Ex: 72215708" style="flex:1">
+      <button class="bsmall b" onclick="openQrScanner()" style="flex-shrink:0;padding:10px 12px">📷 QR</button>
+    </div>
+    <div id="qrScannerWrap" style="display:none;margin-top:8px">
+      <div class="qr-wrap"><video id="qrVideo" autoplay playsinline muted></video><div class="qr-overlay"><div class="qr-frame"></div></div></div>
+      <button class="bsmall" onclick="closeQrScanner()" style="width:100%;padding:8px;border-radius:8px;margin-top:4px">Annuler</button>
+    </div>
+  </div>
+  <div class="field"><label>Notes</label><textarea id="f-notes" placeholder="Référence, lien, remarques…"></textarea></div>
+  <div style="background:var(--blue-bg);border:1px solid rgba(77,159,255,0.2);border-radius:12px;padding:12px;margin-bottom:10px">
+    <div style="font-size:12px;color:var(--blue);font-weight:600;margin-bottom:8px">👤 Vendeur Hacoo / YepExpress</div>
+    <div class="field" style="margin-bottom:8px"><label>Nom du vendeur</label><input id="f-vendeur" type="text" placeholder="Ex: shop_sneakers88"></div>
+    <div class="frow">
+      <div class="field" style="margin-bottom:0"><label>Note /5 ⭐</label>
+        <select id="f-note-vendeur">
+          <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
+          <option value="4">⭐⭐⭐⭐ Bien</option>
+          <option value="3">⭐⭐⭐ Moyen</option>
+          <option value="2">⭐⭐ Mauvais</option>
+          <option value="1">⭐ Très mauvais</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0"><label>Commentaire</label><input id="f-comment-vendeur" type="text" placeholder="Ex: boite abimée"></div>
+    </div>
+  </div>
+  <button class="bprimary" onclick="saveArticle()">Enregistrer</button>
+  <button class="bsec" onclick="closeM('mAdd')">Annuler</button>
+</div></div>
+
+<!-- MODAL DETAIL -->
+<div class="mbg" id="mDetail"><div class="modal">
+  <div class="mhandle"></div>
+  <div class="dmain" id="dmainPhoto"></div>
+  <div class="dphotos" id="dPhotos"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:16px;font-weight:600" id="dNom"></div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px" id="dMeta"></div>
+      <div id="dScore" style="margin-top:4px"></div>
+      <div id="dAge" style="margin-top:3px"></div>
+    </div>
+    <div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">
+      <button class="bsmall p" onclick="aiEstimate()">🤖</button>
+      <button class="bsmall b" onclick="printFiche()">🖨️</button>
+      <button class="bsmall" onclick="shareArticleImage()" style="padding:6px 8px">📤</button>
+      <button class="bsmall a" onclick="dupliquerArticle()">⭐</button>
+    </div>
+  </div>
+  <div id="dPvBasAlert"></div>
+  <div class="dgrid" id="dGrid"></div>
+  <div id="dAiBox"></div>
+
+  <div class="plinks" id="dLinks"></div>
+  <div class="sep"></div>
+  <div class="field"><label>Marquer vendu — PV Vinted €</label><input type="number" id="dPv" step="0.01" placeholder="Prix de vente" oninput="updateDetailCalc()"></div>
+  <div class="field"><label>Date de vente</label><input type="date" id="dDateVente"></div>
+  <div class="field"><label>Compte Vinted</label>
+    <select id="dVinted"><option value="tony">Tony 💙</option><option value="laetitia">Laetitia 💗</option></select>
+  </div>
+  <div id="dCalc"></div>
+  <div id="dVendeurBox"></div>
+  <button class="bprimary" id="dBtnVendu" onclick="marquerVendu()">✓ Marquer comme vendu</button>
+  <button class="bsmall r" id="dBtnRetour" onclick="marquerRetour()" style="width:100%;padding:10px;margin-top:6px;border-radius:10px">↩️ Retour acheteur</button>
+  <div style="margin-top:10px;padding:10px;background:var(--card2);border-radius:10px">
+    <label style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">🔄 Changer le statut</label>
+    <select id="dChangeStatut" onchange="if(this.value)changeStatut(this.value)" style="width:100%;margin-top:6px;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:10px;color:var(--text);font-family:inherit">
+      <option value="">— Choisir un nouveau statut —</option>
+      <option value="attente">🕐 En attente</option>
+      <option value="stock">📦 En stock</option>
+      <option value="vente">📢 En vente</option>
+    </select>
+  </div>
+  <button class="bsmall g" id="dBtnRacheter" onclick="racheterArticle()" style="width:100%;padding:10px;margin-top:6px;border-radius:10px;display:none">🔄 Racheter ce modèle</button>
+  <button class="bsmall g" onclick="genVintedDesc()" style="width:100%;padding:10px;margin-top:6px;border-radius:10px">📝 Générer annonce Vinted</button>
+  <div id="dVintedDesc"></div>
+  <button class="bsec" onclick="closeM('mDetail')">Fermer</button>
+  <button class="bdanger" onclick="suppArticle()" style="background:linear-gradient(135deg,#ff4d4d,#cc0000);color:white;font-weight:700">🗑️ Supprimer cette paire</button>
+</div></div>
+
+<!-- MODAL FUTUR -->
+<div class="mbg" id="mFutur"><div class="modal">
+  <div class="mhandle"></div><div class="mtitle">Futur achat / À tester</div>
+  <div class="field"><label>Nom du modèle</label><input id="ff-nom" type="text" placeholder="Ex: Nike Dunk Low Panda"></div>
+  <div class="frow">
+    <div class="field"><label>PA estimé €</label><input id="ff-pa" type="number" step="0.01" placeholder="0.00" oninput="updateFuturPreview()"></div>
+    <div class="field"><label>Port estimé €</label><input id="ff-port" type="number" step="0.01" placeholder="0.00" oninput="updateFuturPreview()"></div>
+  </div>
+  <div class="field"><label>PV estimé Vinted €</label><input id="ff-pv" type="number" step="0.01" placeholder="0.00" oninput="updateFuturPreview()"></div>
+  <div id="futurPreview"></div>
+  <div class="field"><label>Lien URL</label><input id="ff-url" type="url" placeholder="https://…"></div>
+  <div class="field"><label>Statut</label>
+    <select id="ff-stat"><option value="tester">À tester</option><option value="interessant">Intéressant</option><option value="eviter">À éviter</option></select>
+  </div>
+  <div class="field"><label>Notes</label><textarea id="ff-notes" placeholder="Tailles dispo, avis…"></textarea></div>
+  <button class="bprimary" onclick="saveFutur()">Enregistrer</button>
+  <button class="bsec" onclick="closeM('mFutur')">Annuler</button>
+</div></div>
+
+<!-- MODAL OBJECTIF -->
+<div class="mbg" id="mObj"><div class="modal">
+  <div class="mhandle"></div><div class="mtitle">Objectif mensuel</div>
+  <div class="field"><label>Bénéfice net visé €</label><input id="objInput" type="number" step="10" placeholder="Ex: 500"></div>
+  <button class="bprimary" onclick="saveObj()">Enregistrer</button>
+  <button class="bsec" onclick="closeM('mObj')">Annuler</button>
+</div></div>
+
+<!-- MODAL TRACKING -->
+<div class="mbg" id="mTrk"><div class="modal">
+  <div class="mhandle"></div><div class="mtitle">Ajouter un colis</div>
+  <div class="field"><label>Nom / article</label><input id="trk-nom" type="text" placeholder="Ex: Sneakers Hacoo"></div>
+  <div class="field"><label>Numéro de suivi</label><input id="trk-num" type="text" placeholder="Ex: 72215708"></div>
+  <div class="frow">
+    <div class="field"><label>Transporteur</label>
+      <select id="trk-carrier"><option>Mondial Relay</option><option>Cainiao</option><option>China Post</option><option>DHL</option><option>Colissimo</option><option>La Poste</option><option>Autre</option></select>
+    </div>
+    <div class="field"><label>Date commande</label><input id="trk-date" type="date"></div>
+  </div>
+  <div class="frow">
+    <div class="field"><label>Statut actuel</label>
+      <select id="trk-stat"><option value="0">En préparation</option><option value="1">Conditionnement</option><option value="2" selected>En transit</option><option value="3">En livraison</option><option value="4">Livré</option></select>
+    </div>
+    <div class="field"><label>Livraison estimée</label><input id="trk-eta" type="text" placeholder="Ex: 04/06–13/06"></div>
+  </div>
+  <button class="bprimary" onclick="saveTrk()">Enregistrer</button>
+  <button class="bsec" onclick="closeM('mTrk')">Annuler</button>
+</div></div>
+
+<!-- MODAL SETTINGS -->
+<div class="mbg" id="mSettings"><div class="modal">
+  <div class="mhandle"></div>
+  <div class="mtitle">⚙️ Paramètres & Sauvegarde</div>
+  <div class="stitle">☁️ Sauvegarde cloud (automatique)</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Tes données sont sauvegardées dans le cloud automatiquement à chaque modification. Tu peux les restaurer depuis n'importe quel appareil avec ton identifiant.</div>
+  <button class="bsec" onclick="cloudBackup(false)" style="margin-top:0;background:linear-gradient(135deg,var(--green-bg),rgba(155,89,182,0.15))">☁️ Sauvegarder maintenant dans le cloud</button>
+  <button class="bsec" onclick="cloudRestore()">⬇️ Restaurer depuis le cloud</button>
+  <div class="stitle">Sauvegarde locale (JSON)</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Télécharge un fichier de sauvegarde sur ton appareil (à mettre sur Google Drive par sécurité).</div>
+  <button class="bsec" onclick="backupData()" style="margin-top:0">💾 Télécharger sauvegarde JSON</button>
+  <button class="bsec" onclick="restoreData()">📂 Restaurer depuis un fichier JSON</button>
+  <div class="stitle">🩺 Diagnostic</div>
+  <button class="bsec" onclick="showDebug()">🩺 Voir l'état des données</button>
+  <div class="stitle" style="color:var(--red)">⚠️ Zone dangereuse</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Efface TOUTES tes données local + cloud. Irréversible.</div>
+  <button class="bdanger" onclick="resetAll()" style="background:linear-gradient(135deg,#ff4d4d,#cc0000);color:white;font-weight:700">🔥 Repartir de zéro (tout effacer)</button>
+  <div class="stitle">Notifications</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Reçois des rappels quand des articles sont en stock depuis trop longtemps.</div>
+  <button class="bsec" onclick="requestNotifPermission()">🔔 Activer les notifications</button>
+  <button class="bsec" onclick="closeM('mSettings')">Fermer</button>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+
+<script src="app.js"></script>
+<script>
+// Auto-clear placeholders on focus / restore if empty
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('input[type=text],input[type=number],input[type=tel],input[type=url],textarea').forEach(el=>{
+    if(!el.dataset.ph)el.dataset.ph=el.placeholder||'';
+    el.addEventListener('focus',()=>{
+      el.placeholder='';
+    });
+    el.addEventListener('blur',()=>{
+      if(!el.value)el.placeholder=el.dataset.ph;
+    });
+  });
+});
+</script>
+</body>
+</html>
