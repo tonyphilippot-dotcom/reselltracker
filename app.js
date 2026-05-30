@@ -475,7 +475,7 @@ function renderMarquesDatalist(){
 function initColorPicker(){document.getElementById('colorPicker').innerHTML=COULEURS.map((c,i)=>`<button type="button" class="cpill" onclick="toggleColor(${i},this)"><span class="cswatch" style="background:${c.c}"></span>${c.l}</button>`).join('');}
 function toggleColor(i,el){const lbl=COULEURS[i].l;const idx=selectedColors.indexOf(lbl);if(idx>=0){selectedColors.splice(idx,1);el.classList.remove('on');}else{selectedColors.push(lbl);el.classList.add('on');}checkPvBas();}
 function getSelectedColors(){const custom=document.getElementById('f-couleur-custom').value.trim();return[...selectedColors,...(custom?[custom]:[])].join(', ');}
-function resetColorPicker(){selectedColors=[];document.querySelectorAll('#colorPicker .cpill').forEach(el=>el.classList.remove('on'));document.getElementById('f-couleur-custom').value='';}
+function resetColorPicker(){selectedColors=[];document.querySelectorAll('#colorPicker .cpill').forEach(el=>el.classList.remove('on'));const _c=document.getElementById('f-couleur-custom');if(_c)_c.value='';}
 
 // ── NAVIGATION
 function showScreen(name){
@@ -507,11 +507,14 @@ document.querySelectorAll('.mbg').forEach(m=>m.addEventListener('click',e=>{if(e
 function openAddModal(){
   if(document.getElementById('screen-futurs').classList.contains('on')){openM('mFutur');return;}
   addPhotos=[];selectedColors=[];
-  ['f-nom','f-marque','f-modele','f-taille','f-taillecm','f-pa','f-pvc','f-notes','f-tracking','f-vendeur','f-comment-vendeur'].forEach(id=>document.getElementById(id).value='');if(document.getElementById('f-statut'))document.getElementById('f-statut').value='stock';document.getElementById('f-port').value='0';document.getElementById('f-quantite').value='1';document.getElementById('f-boite').value='marques';document.getElementById('f-note-vendeur').value='5';
-  document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
-  document.getElementById('addPhotos').innerHTML='';document.getElementById('margePreview').innerHTML='';
-  document.getElementById('pvBasAlert').innerHTML='';document.getElementById('importStatus').innerHTML='';
-  document.getElementById('mAddTitle').textContent='Nouvel article';
+  const _sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+  const _sh=(id,h)=>{const el=document.getElementById(id);if(el)el.innerHTML=h;};
+  ['f-nom','f-marque','f-modele','f-taille','f-taillecm','f-pa','f-pvc','f-notes','f-tracking','f-vendeur','f-comment-vendeur'].forEach(id=>_sv(id,''));
+  _sv('f-statut','stock');_sv('f-port','0');_sv('f-quantite','1');_sv('f-boite','marques');_sv('f-note-vendeur','5');
+  _sv('f-date',new Date().toISOString().split('T')[0]);
+  _sh('addPhotos','');_sh('margePreview','');
+  _sh('pvBasAlert','');_sh('importStatus','');
+  const _t=document.getElementById('mAddTitle');if(_t)_t.textContent='Nouvel article';
   resetColorPicker();openM('mAdd');
   // 🚫 Port jamais utilisé : forcer à 0 et cacher le champ
   setTimeout(()=>{
