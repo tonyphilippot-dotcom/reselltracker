@@ -105,7 +105,7 @@ let futurs=_loadWithFallback('rt-fut');
 let tracking=_loadWithFallback('rt-trk');
 let objectif=parseFloat(localStorage.getItem('rt-obj')||'0');
 let addPhotos=[],selectedColors=[],currentId=null;
-let stockFilter='tous',futurFilter='tous',ventesTab='env',histoTab='m',chartMode='m',payTab='attente',dashPeriod='month';
+let stockFilter='stock',futurFilter='tous',ventesTab='env',histoTab='m',chartMode='m',payTab='attente',dashPeriod='month';
 let chartObj=null,qrStream=null,qrInterval=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 function save(){
@@ -1000,6 +1000,20 @@ function renderDashboard(){
   const last=[...articles].filter(a=>a.statut==='vendu').sort((a,b)=>(b.dateVente||'').localeCompare(a.dateVente||'')).slice(0,5);
   document.getElementById('dashSales').innerHTML=!last.length?'<div class="empty"><div class="eicon">...</div>Aucune vente</div>':last.map(a=>{const r=calcMarge(a);const m=r?r.net:0;return'<div class="irow" onclick="openDetail(\''+a.id+'\')"><div class="ithumb">'+thumb(a)+'</div><div class="iinfo"><div class="iname">'+a.nom+'</div><div class="imeta">'+a.plateforme+' '+fmtDate(a.dateVente)+'</div></div><div class="ival"><div class="marge '+(m>=0?'mp':'mn')+'">'+fmt(m)+'</div>'+vintedTag(a.vinted)+'</div></div>';}).join('');
   renderChart();updateObj();
+  // 🧹 Épuration dashboard : cacher les sections non désirées
+  hideDashSections();
+}
+function hideDashSections(){
+  // Cacher : liste de courses, temps moyen de vente, dernières ventes, bandeaux d'alerte
+  ['listeCourses','tempVente','dashSales','rappelsBanner','pvBasBanner'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.style.display='none';
+      // Cacher le titre juste avant (stitle)
+      let prev=el.previousElementSibling;
+      if(prev&&prev.classList&&prev.classList.contains('stitle'))prev.style.display='none';
+    }
+  });
 }
 function switchChart(m){chartMode=m;['ct-m','ct-a','ct-c'].forEach((id,i)=>document.getElementById(id).classList.toggle('on',['m','a','c'][i]===m));renderChart();}
 function renderChart(){
@@ -1047,7 +1061,23 @@ function setFilter(f,el,vn){
 }
 let stockSort='marge';
 function setStockSort(v){stockSort=v;renderStock();}
+let _stockPillsCleaned=false;
+function cleanStockPills(){
+  if(_stockPillsCleaned)return;
+  const pills=document.getElementById('stockPills');
+  if(!pills)return;
+  // Cacher les filtres inutiles (que des chaussures, pas de filtre plateforme)
+  pills.querySelectorAll('.pill').forEach(b=>{
+    const oc=b.getAttribute('onclick')||'';
+    if(/'(V\u00eatements|Sacs|Accessoires|Hacoo|YepExpress)'/.test(oc)){b.style.display='none';}
+    // Marquer la pill "En stock" comme active au lieu de "Tout"
+    b.classList.remove('on');
+    if(/'stock'/.test(oc))b.classList.add('on');
+  });
+  _stockPillsCleaned=true;
+}
 function renderStock(){
+  cleanStockPills();
   const search=(document.getElementById('stockSearch').value||'').toLowerCase();
   let arts=[...articles];
   // 📦 Masquer les paires archivées (encaissées) sauf si on veut les voir
