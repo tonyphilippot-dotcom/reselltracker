@@ -512,9 +512,14 @@ function openAddModal(){
   setTimeout(()=>{
     const p=document.getElementById('f-port');
     if(p){p.value='0';
-      // Cacher le conteneur du champ port
       let box=p.closest('.field')||p.closest('div');
       if(box)box.style.display='none';
+    }
+    // 🚫 PV cible inutile : cacher le champ
+    const pvc=document.getElementById('f-pvc');
+    if(pvc){pvc.value='';
+      let box2=pvc.closest('.field')||pvc.closest('div');
+      if(box2)box2.style.display='none';
     }
   },30);
 }
@@ -1066,11 +1071,11 @@ function cleanStockPills(){
   if(_stockPillsCleaned)return;
   const pills=document.getElementById('stockPills');
   if(!pills)return;
-  // Cacher les filtres inutiles (que des chaussures, pas de filtre plateforme)
+  // Garder uniquement : En stock, Attente, Vendus, Retours
   pills.querySelectorAll('.pill').forEach(b=>{
     const oc=b.getAttribute('onclick')||'';
-    if(/'(V\u00eatements|Sacs|Accessoires|Hacoo|YepExpress)'/.test(oc)){b.style.display='none';}
-    // Marquer la pill "En stock" comme active au lieu de "Tout"
+    const garder=/'(stock|attente|vendu|retour)'/.test(oc);
+    b.style.display=garder?'':'none';
     b.classList.remove('on');
     if(/'stock'/.test(oc))b.classList.add('on');
   });
@@ -1082,7 +1087,7 @@ function renderStock(){
   let arts=[...articles];
   // 📦 Masquer les paires archivées (encaissées) sauf si on veut les voir
   if(stockFilter!=='archive')arts=arts.filter(a=>!a.archived);
-  const filters={actifs:a=>!['vendu','retour'].includes(a.statut),attente:a=>a.statut==='attente',stock:a=>a.statut==='stock',vente:a=>a.statut==='vente',vendu:a=>a.statut==='vendu',retour:a=>a.statut==='retour',archive:a=>a.archived,Hacoo:a=>a.plateforme==='Hacoo',YepExpress:a=>a.plateforme==='YepExpress',tony:a=>a.vinted==='tony',laetitia:a=>a.vinted==='laetitia'};
+  const filters={actifs:a=>!['vendu','retour'].includes(a.statut),attente:a=>a.statut==='attente',stock:a=>['stock','vente'].includes(a.statut),vente:a=>a.statut==='vente',vendu:a=>a.statut==='vendu',retour:a=>a.statut==='retour',archive:a=>a.archived,Hacoo:a=>a.plateforme==='Hacoo',YepExpress:a=>a.plateforme==='YepExpress',tony:a=>a.vinted==='tony',laetitia:a=>a.vinted==='laetitia'};
   ['Chaussures','V\u00eatements','Sacs','Accessoires'].forEach(c=>{filters[c]=a=>a.categorie===c;});
   if(filters[stockFilter])arts=arts.filter(filters[stockFilter]);
   if(search)arts=arts.filter(a=>[a.nom,a.marque,a.modele,a.taille,a.couleur,a.notes].join(' ').toLowerCase().includes(search));
@@ -1120,7 +1125,7 @@ function renderStock(){
       const base=a.dateRecu||a.date;
       if(base){const d=Math.max(0,Math.floor((new Date(a.dateVente+'T00:00:00')-new Date(base+'T00:00:00'))/864e5));delaiVente='<div class="scm" style="color:var(--green)">⏱️ vendu en '+d+'j</div>';}
     }
-    return '<div class="scard" data-id="'+a.id+'" onclick="openDetail(\''+a.id+'\')"><div class="age-bar" style="background:'+ageC+'"></div><div class="sphoto">'+thumb(a)+(s?'<div class="score-dot" style="color:'+(s>=7?'var(--green)':s>=4?'var(--amber)':'var(--red)')+'">'+s+'/10</div>':'')+(a.best?'<div class="best-dot">&#11088;</div>':'')+(dormant?'<div style="position:absolute;top:3px;left:3px;font-size:9px;font-weight:600;padding:2px 6px;border-radius:8px;background:rgba(255,85,102,0.9);color:#fff">😴 '+j+'j</div>':'')+'</div><div class="sbody"><div class="sname">'+a.nom+'</div><div class="sdet">'+([a.taille,a.couleur].filter(Boolean)[0]||a.plateforme)+'</div><div class="spa">'+fmtP(a.pa||0)+(pvBas?' &#9888;':'')+'</div>'+function(){if(a.statut==='vendu'){const r=calcMarge(a);let html='';if(a.pv)html+='<div class="smg" style="color:var(--blue)">&#128722; '+fmtP(a.pv)+'</div>';if(r&&r.net)html+='<div class="scm" style="color:'+(r.net>=0?'var(--green)':'var(--red)');html+='">'+fmt(r.net)+' €</div>';return html;}if(!['vendu','retour'].includes(a.statut)&&a.pvcible)return '<div class="smg">&#10145;'+fmtP(a.pvcible)+'</div>';return '';}()+delaiVente+'<span class="bdg '+a.statut+'">'+statLabel(a.statut)+'</span>'+vintedTag(a.vinted)+'</div></div>';
+    return '<div class="scard" data-id="'+a.id+'" onclick="openDetail(\''+a.id+'\')"><div class="age-bar" style="background:'+ageC+'"></div><div class="sphoto">'+thumb(a)+(s?'<div class="score-dot" style="color:'+(s>=7?'var(--green)':s>=4?'var(--amber)':'var(--red)')+'">'+s+'/10</div>':'')+(a.best?'<div class="best-dot">&#11088;</div>':'')+(dormant?'<div style="position:absolute;top:3px;left:3px;font-size:9px;font-weight:600;padding:2px 6px;border-radius:8px;background:rgba(255,85,102,0.9);color:#fff">😴 '+j+'j</div>':'')+'</div><div class="sbody"><div class="sname">'+a.nom+'</div><div class="sdet">'+([a.taille,a.couleur].filter(Boolean)[0]||a.plateforme)+'</div><div class="spa">'+fmtP(a.pa||0)+'</div>'+function(){if(a.statut==='vendu'){const r=calcMarge(a);let html='';if(a.pv)html+='<div class="smg" style="color:var(--blue)">&#128722; '+fmtP(a.pv)+'</div>';if(r&&r.net)html+='<div class="scm" style="color:'+(r.net>=0?'var(--green)':'var(--red)');html+='">'+fmt(r.net)+' €</div>';return html;}return '';}()+delaiVente+'<span class="bdg '+a.statut+'">'+statLabel(a.statut)+'</span>'+vintedTag(a.vinted)+'</div></div>';
   }).join('')+'<div class="scard sadd" onclick="openAddModal()"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg><span>Ajouter</span></div>';
 }
 
@@ -1203,9 +1208,7 @@ function buildDGrid(a,cout){
     +gClose;
   // SECTION 3 — Prix (coût + PV cible côte à côte, juste avant la section vente)
   html+=sec('💰 Prix')+gOpen
-    +'<div class="dfield"><div class="dfield-lbl">Coût total</div><div class="dfield-val">'+fmtP(cout)+'</div></div>'
-    +'<div class="dfield"><div class="dfield-lbl">🎯 PV cible €</div>'
-      +'<input style="width:100%;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:6px 8px;color:var(--text);font-family:inherit;font-size:13px;font-weight:600;margin-top:2px" id="edit-pvcible" value="'+(a.pvcible||'')+'" placeholder="Ex: 90" type="number" step="0.01" onchange="saveField(this,\'pvcible\',true)"></div>'
+    +'<div class="dfield" style="grid-column:span 2"><div class="dfield-lbl">Coût total</div><div class="dfield-val">'+fmtP(cout)+'</div></div>'
     +gClose;
   return html;
 }
