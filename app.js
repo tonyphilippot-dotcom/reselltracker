@@ -1558,7 +1558,33 @@ function renderPaiements(){
   const tA=pays.filter(p=>!p.recu).reduce((s,p)=>s+p.montant,0);const tR=pays.filter(p=>p.recu).reduce((s,p)=>s+p.montant,0);
   document.getElementById('payStats').innerHTML='<div class="kpi-grid"><div class="kpi-card"><div class="kpi-lbl">En attente</div><div class="kpi-val kv-a">'+fmtP(tA)+'</div></div><div class="kpi-card"><div class="kpi-lbl">Recu total</div><div class="kpi-val kv-g">'+fmtP(tR)+'</div></div></div>';
   if(!filtered.length){list.innerHTML='<div class="empty"><div class="eicon">&#128179;</div>Aucun paiement</div>';return;}
-  list.innerHTML=filtered.sort((a,b)=>b.date.localeCompare(a.date)).map(p=>'<div class="pay-row"><div style="flex:1"><div class="pay-nom">'+p.nom+'</div><div class="pay-meta">'+vintedTag(p.vinted)+' '+fmtDate(p.date)+'</div></div><div style="text-align:right"><div class="pay-amount'+(p.recu?' recu':'')+'">'+fmtP(p.montant)+'</div>'+(!p.recu?'<button class="bsmall g" style="margin-top:4px;font-size:10px;padding:4px 8px" onclick="marquerPayRecu(\''+p.id+'\')">Recu</button>':'')+'</div></div>').join('');
+  list.innerHTML=filtered.sort((a,b)=>b.date.localeCompare(a.date)).map(p=>'<div class="pay-row"><div style="flex:1"><div class="pay-nom">'+p.nom+'</div><div class="pay-meta"><select onchange="changePayVinted(\''+p.id+'\',this.value)" onclick="event.stopPropagation()" style="background:var(--card);border:1px solid var(--border2);border-radius:6px;padding:2px 6px;color:var(--text);font-family:inherit;font-size:11px"><option value="tony"'+(p.vinted==='tony'?' selected':'')+'>Tony \uD83D\uDC99</option><option value="laetitia"'+(p.vinted==='laetitia'?' selected':'')+'>Laetitia \uD83D\uDC97</option></select> '+fmtDate(p.date)+'</div></div><div style="text-align:right"><div class="pay-amount'+(p.recu?' recu':'')+'">'+fmtP(p.montant)+'</div>'+(!p.recu?'<button class="bsmall g" style="margin-top:4px;font-size:10px;padding:4px 8px" onclick="marquerPayRecu(\''+p.id+'\')">Recu</button>':'<button class="bsmall" style="margin-top:4px;font-size:10px;padding:4px 8px;color:var(--text2)" onclick="annulerPayRecu(\''+p.id+'\')">&#8617; Annuler</button>')+'</div></div>').join('');
+}
+
+// Changer le compte Vinted d'un paiement (et de la paire liée)
+function changePayVinted(id,val){
+  const pays=JSON.parse(localStorage.getItem('rt-pay')||'[]');
+  const p=pays.find(x=>x.id===id);if(!p)return;
+  p.vinted=val;
+  localStorage.setItem('rt-pay',JSON.stringify(pays));
+  // Mettre à jour aussi la paire liée
+  if(p.artId){const art=articles.find(a=>a.id===p.artId);if(art)art.vinted=val;}
+  save();
+  renderPaiements();renderDashboard();renderStock();renderVentes();
+  showToast('✅ Compte Vinted mis à jour');
+}
+
+// ↩️ Annuler un paiement reçu (en cas d'erreur) → désarchive la paire
+function annulerPayRecu(id){
+  const pays=JSON.parse(localStorage.getItem('rt-pay')||'[]');
+  const p=pays.find(x=>x.id===id);if(!p)return;
+  if(!confirm('Annuler l\'encaissement de "'+p.nom+'" ? La paire reviendra dans le stock.'))return;
+  p.recu=false;delete p.dateRecu;
+  localStorage.setItem('rt-pay',JSON.stringify(pays));
+  if(p.artId){const art=articles.find(a=>a.id===p.artId);if(art)art.archived=false;}
+  save();
+  renderPaiements();renderStock();renderDashboard();
+  showToast('\u21a9\ufe0f Encaissement annule');
 }
 function marquerPayRecu(id){
   const pays=JSON.parse(localStorage.getItem('rt-pay')||'[]');
